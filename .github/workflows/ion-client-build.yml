@@ -57,10 +57,9 @@ jobs:
           \t\t\tint top = bodyTop(i);
           \t\t\tint visible = visibleHeight(i);
           \t\t\tint maxScroll"""
-          replacement = """\t\t\tint maxScroll"""
           if duplicate not in text:
               raise SystemExit("Could not safely locate duplicate ClickGuiScreen declarations")
-          text = text.replace(duplicate, replacement, 1)
+          text = text.replace(duplicate, """\t\t\tint maxScroll""", 1)
           click.write_text(text)
 
           settings = Path("ion-client/src/main/java/com/suschunkfinder/ModuleSettingsScreen.java")
@@ -82,11 +81,21 @@ jobs:
           settings.write_text(text)
           PY
 
-      - name: Build Fabric mod
+      - name: Build Fabric mod (retry transient downloads)
         working-directory: ion-client
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon build
+          for attempt in 1 2 3; do
+            echo "Build attempt $attempt of 3"
+            if ./gradlew --no-daemon --no-configuration-cache build; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "Build failed; waiting 20 seconds before retry..."
+              sleep 20
+            fi
+          done
+          exit 1
 
       - name: Upload built JAR
         uses: actions/upload-artifact@v4
