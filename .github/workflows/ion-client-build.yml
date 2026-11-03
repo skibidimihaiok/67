@@ -71,7 +71,10 @@ jobs:
           binds = (root / "ModuleKeybinds.java").read_text()
           if "private static void syncHolds()" not in binds:
               raise SystemExit("Hold bind release handling is missing")
-          print(f"Validated {len(required)} ION module source files and bind mode hooks.")
+          settings = (root / "ModuleSettingsScreen.java").read_text()
+          if "number.change(false); ModuleManager.save();" not in settings:
+              raise SystemExit("Numeric setting persistence is missing")
+          print(f"Validated {len(required)} ION module sources, bind modes, and setting persistence.")
           PY
 
       - name: Inspect extracted project sources
