@@ -43,7 +43,7 @@ jobs:
               text = text.replace(marker, additions + marker, 1)
           for name in ("Aura", "Criticals", "Auto Armor", "Offhand", "Trigger Bot", "Auto Totem"):
               import re
-              text = re.sub(r'^\\s*\\{"' + re.escape(name) + r'", [^\\n]*\\},?\\n', '', text, flags=re.MULTILINE)
+              text = re.sub(r'^\s*\{"' + re.escape(name) + r'", [^\n]*\},?\n', '', text, flags=re.MULTILINE)
           manager.write_text(text)
           PY
 
