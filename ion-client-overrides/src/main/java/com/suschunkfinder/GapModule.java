@@ -19,7 +19,7 @@ public final class GapModule extends ClientModule {
     public void tick(Minecraft client) {
         if (client.player == null || client.gameMode == null || client.screen != null) return;
         if (restoreSlot >= 0) {
-            client.player.getInventory().selected = restoreSlot;
+            client.player.getInventory().setSelectedSlot( restoreSlot);
             restoreSlot = -1;
         }
         if (wait > 0) { wait--; return; }
@@ -33,8 +33,8 @@ public final class GapModule extends ClientModule {
             }
         }
         if (slot < 0) return;
-        restoreSlot = client.player.getInventory().selected;
-        client.player.getInventory().selected = slot;
+        restoreSlot = client.player.getInventory().getSelectedSlot();
+        client.player.getInventory().setSelectedSlot( slot);
         client.gameMode.useItem(client.player, InteractionHand.MAIN_HAND);
         wait = cooldown.getInt();
     }
