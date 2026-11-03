@@ -60,7 +60,7 @@ jobs:
               "HitmarkerModule.java", "JumpEffectsModule.java",
               "StepModule.java", "SpiderModule.java", "ElytraBoostModule.java",
               "LandingEffectsModule.java", "OrbitParticlesModule.java",
-              "ClientModule.java", "ModuleKeybinds.java", "ModuleSettingsScreen.java", "NumberSetting.java", "HaloModule.java", "TargetTrailsModule.java", "PlayerTrailsModule.java", "CriticalParticlesModule.java"
+              "ClientModule.java", "ModuleKeybinds.java", "ModuleSettingsScreen.java", "NumberSetting.java", "HaloModule.java", "TargetTrailsModule.java", "PlayerTrailsModule.java", "CriticalParticlesModule.java", "ThemeModule.java"
           ]
           missing = [name for name in required if not (root / name).is_file()]
           if missing:
@@ -68,6 +68,9 @@ jobs:
           base = (root / "ClientModule.java").read_text()
           if "public void onBindAction() { tick(Minecraft.getInstance()); }" not in base:
               raise SystemExit("Action bind hook is missing")
+          theme = (root / "ThemeModule.java").read_text()
+          if '"Custom"' not in theme or '"Custom red"' not in theme:
+              raise SystemExit("Custom RGB theme settings are missing")
           binds = (root / "ModuleKeybinds.java").read_text()
           if "private static void syncHolds()" not in binds:
               raise SystemExit("Hold bind release handling is missing")
