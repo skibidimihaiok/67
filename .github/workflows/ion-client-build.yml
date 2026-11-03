@@ -28,6 +28,13 @@ jobs:
           mkdir ion-client
           unzip -q ION-CLIENT-visuals-experimental.zip -d ion-client
 
+      - name: Show failing source sections
+        run: |
+          echo '--- ClickGuiScreen.java ---'
+          nl -ba ion-client/src/main/java/com/suschunkfinder/ClickGuiScreen.java | sed -n '125,180p'
+          echo '--- ModuleSettingsScreen.java ---'
+          nl -ba ion-client/src/main/java/com/suschunkfinder/ModuleSettingsScreen.java | sed -n '1,130p'
+
       - name: Build Fabric mod
         working-directory: ion-client
         run: |
