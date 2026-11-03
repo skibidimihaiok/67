@@ -12,7 +12,7 @@ public final class AutoTotemModule extends ClientModule {
     private int wait;
 
     public AutoTotemModule() {
-        super("Auto Totem", "Moves a totem from your inventory to an empty offhand.", Category.COMBAT);
+        super("Auto Totem", "Keeps a totem in your offhand, swapping the previous item back into inventory.", Category.COMBAT);
     }
 
     @Override
