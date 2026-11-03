@@ -1,30 +1,7 @@
 package com.suschunkfinder;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.world.entity.LivingEntity;
-
-/** Highlights only the living entity currently under the crosshair. */
-public final class TargetHighlightModule extends ClientModule {
-    private final NumberSetting particles = add(NumberSetting.of("Particles", 2, 1, 6, 1));
-    private final NumberSetting height = add(NumberSetting.of("Height offset", 0.5, 0.1, 1.5, 0.1));
-
-    public TargetHighlightModule() {
-        super("Target Highlight", "Adds a subtle particle marker to the crosshair target.", Category.RENDER);
-    }
-
-    @Override
-    public void tick(Minecraft client) {
-        if (client.player == null || client.level == null || client.screen != null) return;
-        if (!(client.crosshairPickEntity instanceof LivingEntity target) || !target.isAlive()) return;
-        double x = target.getX();
-        double y = target.getY() + height.get();
-        double z = target.getZ();
-        for (int i = 0; i < particles.getInt(); i++) {
-            double angle = (System.currentTimeMillis() / 180.0) + (Math.PI * 2.0 * i / particles.getInt());
-            client.level.addParticle(ParticleTypes.END_ROD,
-                    x + Math.cos(angle) * target.getBbWidth() * 0.65, y,
-                    z + Math.sin(angle) * target.getBbWidth() * 0.65, 0.0, 0.01, 0.0);
-        }
-    }
+import net.minecraft.client.Minecraft; import net.minecraft.world.entity.LivingEntity; import net.minecraft.world.phys.AABB;
+public final class TargetHighlightModule extends ClientModule implements EspSource {
+ private final NumberSetting height=add(NumberSetting.of("Height offset",0.5,0.1,1.5,0.1));
+ public TargetHighlightModule(){super("Target Highlight","Neon target frame with animated ground rings.",Category.RENDER);}
+ public void collect(EspBatch b,float pt){Minecraft c=Minecraft.getInstance();if(!(c.crosshairPickEntity instanceof LivingEntity e)||!e.isAlive())return;float[] q=VisualEffects.color();AABB a=e.getBoundingBox().inflate(0.06);b.outline(a.minX,a.minY,a.minZ,a.maxX,a.maxY,a.maxZ,q[0],q[1],q[2],0.95f,0.025);double pulse=0.8+Math.sin(System.currentTimeMillis()*0.006)*0.12;VisualEffects.circle(b,e.position(),e.getBbWidth()*pulse,0.04,q[0],q[1],q[2],0.85f,0.045);VisualEffects.circle(b,e.position(),e.getBbWidth()*1.25,height.get(),q[0],q[1],q[2],0.45f,0.025);}
 }
