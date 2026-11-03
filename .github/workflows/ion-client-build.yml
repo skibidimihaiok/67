@@ -88,7 +88,10 @@ jobs:
           numeric = (root / "NumberSetting.java").read_text()
           if "public double min()" not in numeric or "public double max()" not in numeric:
               raise SystemExit("Numeric setting slider bounds are missing")
-          print(f"Validated {len(required)} ION module sources, bind modes, and setting persistence.")
+          combat = (root / "AutoPearlCatchModule.java").read_text()
+          if "public void onBindAction()" not in combat or "Items.ENDER_PEARL" not in combat:
+              raise SystemExit("Manual pearl clutch action is incomplete")
+          print(f"Validated {len(required)} ION module sources, bind modes, and combat actions.")
           PY
 
       - name: Inspect extracted project sources
