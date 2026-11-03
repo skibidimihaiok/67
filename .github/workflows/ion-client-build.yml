@@ -65,7 +65,10 @@ jobs:
           missing = [name for name in required if not (root / name).is_file()]
           if missing:
               raise SystemExit("Missing registered module sources: " + ", ".join(missing))
-          print(f"Validated {len(required)} ION module source files.")
+          base = (root / "ClientModule.java").read_text()
+          if "public void onBindAction() { tick(Minecraft.getInstance()); }" not in base:
+              raise SystemExit("Action bind hook is missing")
+          print(f"Validated {len(required)} ION module source files and Action bind hook.")
           PY
 
       - name: Inspect extracted project sources
