@@ -2,7 +2,7 @@ package com.suschunkfinder;
 
 import net.minecraft.client.Minecraft;
 
-/** Holds sprint while forward movement is requested. */
+/** Holds sprint while the forward movement key is pressed. */
 public final class SprintModule extends ClientModule {
     public SprintModule() {
         super("Sprint", "Automatically sprints while moving forward.", Category.MOVEMENT);
@@ -11,8 +11,7 @@ public final class SprintModule extends ClientModule {
     @Override
     public void tick(Minecraft client) {
         if (client.player == null || client.screen != null) return;
-        boolean movingForward = client.player.input != null && client.player.input.forwardImpulse > 0.0F;
-        client.options.keySprint.setDown(movingForward);
+        client.options.keySprint.setDown(client.options.keyUp.isDown());
     }
 
     @Override
