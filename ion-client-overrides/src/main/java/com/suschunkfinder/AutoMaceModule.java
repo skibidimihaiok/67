@@ -27,8 +27,8 @@ public final class AutoMaceModule extends ClientModule {
             if (client.player.getInventory().getItem(i).is(Items.MACE)) { maceSlot = i; break; }
         }
         if (maceSlot < 0) return;
-        int previous = client.player.getInventory().selected;
-        client.player.getInventory().selected = maceSlot;
+        int previous = client.player.getInventory().getSelectedSlot();
+        client.player.getInventory().setSelectedSlot( maceSlot);
         if (stunSlam.index() == 1 && target.isBlocking()) {
             int chargeSlot = -1;
             for (int i = 0; i < 9; i++) {
@@ -38,9 +38,9 @@ public final class AutoMaceModule extends ClientModule {
                 }
             }
             if (chargeSlot >= 0) {
-                client.player.getInventory().selected = chargeSlot;
+                client.player.getInventory().setSelectedSlot( chargeSlot);
                 client.gameMode.useItem(client.player, net.minecraft.world.InteractionHand.MAIN_HAND);
-                client.player.getInventory().selected = maceSlot;
+                client.player.getInventory().setSelectedSlot( maceSlot);
             }
         }
         if (client.player.getAttackStrengthScale(0.5F) >= 1.0F) {
@@ -48,7 +48,7 @@ public final class AutoMaceModule extends ClientModule {
             client.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
             wait = 10;
         }
-        client.player.getInventory().selected = previous;
+        client.player.getInventory().setSelectedSlot( previous);
     }
 
     @Override
