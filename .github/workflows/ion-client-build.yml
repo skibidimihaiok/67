@@ -194,3 +194,5 @@ jobs:
           name: ION-CLIENT-jar
           path: ion-client/build/libs/*.jar
           if-no-files-found: error
+
+# Visual effect geometry sources are copied from ion-client-overrides during the build.
