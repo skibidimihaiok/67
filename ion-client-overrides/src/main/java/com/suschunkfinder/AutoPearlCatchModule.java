@@ -48,7 +48,7 @@ public final class AutoPearlCatchModule extends ClientModule {
         oldPitch = client.player.getXRot();
         oldSlot = client.player.getInventory().selected;
         client.player.getInventory().selected = pearlSlot;
-        client.player.setXRot(-pitch.get().floatValue());
+        client.player.setXRot(-(float) pitch.get());
         client.gameMode.useItem(client.player, InteractionHand.MAIN_HAND);
         restore = true;
     }
