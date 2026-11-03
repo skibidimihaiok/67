@@ -28,6 +28,22 @@ jobs:
           mkdir ion-client
           unzip -q ION-CLIENT-visuals-experimental.zip -d ion-client
 
+      - name: Apply ION module overrides
+        run: |
+          cp -R ion-client-overrides/src/main/java/. ion-client/src/main/java/
+          python3 - <<'PY'
+          from pathlib import Path
+          manager = Path("ion-client/src/main/java/com/suschunkfinder/ModuleManager.java")
+          text = manager.read_text()
+          marker = "\t\t// Macro"
+          additions = "\t\tMODULES.add(new SprintModule());\n\t\tMODULES.add(new AutoJumpModule());\n"
+          if "new SprintModule()" not in text:
+              if marker not in text:
+                  raise SystemExit("Could not find movement registration point in ModuleManager")
+              text = text.replace(marker, additions + marker, 1)
+          manager.write_text(text)
+          PY
+
       - name: Inspect extracted project sources
         run: |
           echo '=== PROJECT FILES ==='
