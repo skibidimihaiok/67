@@ -33,6 +33,7 @@ public final class ModuleKeybinds {
                 poll(-button - 1, GLFW.glfwGetMouseButton(window, button) == GLFW.GLFW_PRESS, active);
             }
             if (!active) releaseHolds();
+            else syncHolds();
         });
     }
 
@@ -54,6 +55,15 @@ public final class ModuleKeybinds {
             DOWN.remove(code);
             for (ClientModule module : ModuleManager.all()) {
                 if (get(module) == code && mode(module) == 1) module.setEnabled(false);
+            }
+        }
+    }
+
+    private static void syncHolds() {
+        for (ClientModule module : ModuleManager.all()) {
+            int code = get(module);
+            if (mode(module) == 1 && (!DOWN.contains(code) || code == 0) && module.isEnabled()) {
+                module.setEnabled(false);
             }
         }
     }
