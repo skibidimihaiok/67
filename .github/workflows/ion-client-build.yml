@@ -54,7 +54,8 @@ jobs:
               "TriggerBotModule.java", "HighJumpModule.java", "AirJumpModule.java",
               "DolphinModule.java", "SpeedModule.java", "LongJumpModule.java",
               "ParkourModule.java", "AmbientParticlesModule.java",
-              "WorldSparklesModule.java", "AutoTotemModule.java",\n              "TargetHighlightModule.java", "FootstepParticlesModule.java"
+              "WorldSparklesModule.java", "AutoTotemModule.java",
+              "TargetHighlightModule.java", "FootstepParticlesModule.java"
           ]
           missing = [name for name in required if not (root / name).is_file()]
           if missing:
