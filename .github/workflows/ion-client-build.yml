@@ -59,7 +59,8 @@ jobs:
               "TargetHudModule.java", "TotemCounterModule.java",
               "HitmarkerModule.java", "JumpEffectsModule.java",
               "StepModule.java", "SpiderModule.java", "ElytraBoostModule.java",
-              "LandingEffectsModule.java", "OrbitParticlesModule.java",\n              "ClientModule.java", "ModuleKeybinds.java", "ModuleSettingsScreen.java", "HaloModule.java", "TargetTrailsModule.java", "PlayerTrailsModule.java", "CriticalParticlesModule.java"
+              "LandingEffectsModule.java", "OrbitParticlesModule.java",
+              "ClientModule.java", "ModuleKeybinds.java", "ModuleSettingsScreen.java", "HaloModule.java", "TargetTrailsModule.java", "PlayerTrailsModule.java", "CriticalParticlesModule.java"
           ]
           missing = [name for name in required if not (root / name).is_file()]
           if missing:
