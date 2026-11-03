@@ -64,9 +64,9 @@ public class ModuleSettingsScreen extends Screen {
 
             if (setting instanceof NumberSetting number) {
                 labels.add(new Label(() -> number.name + ": " + number.valueText(), x, y + 6));
-                this.addRenderableWidget(Button.builder(Component.literal("-"), b -> number.change(false))
+                this.addRenderableWidget(Button.builder(Component.literal("-"), b -> { number.change(false); ModuleManager.save(); })
                         .bounds(x + 122, y, 22, 20).build());
-                this.addRenderableWidget(Button.builder(Component.literal("+"), b -> number.change(true))
+                this.addRenderableWidget(Button.builder(Component.literal("+"), b -> { number.change(true); ModuleManager.save(); })
                         .bounds(x + 148, y, 22, 20).build());
             } else {
                 this.addRenderableWidget(Button.builder(Component.literal(setting.name + ": " + setting.valueText()), b -> {
