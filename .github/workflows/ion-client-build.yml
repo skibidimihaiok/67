@@ -88,6 +88,12 @@ jobs:
           numeric = (root / "NumberSetting.java").read_text()
           if "public double min()" not in numeric or "public double max()" not in numeric:
               raise SystemExit("Numeric setting slider bounds are missing")
+          for name in ("GapModule.java", "AutoMaceModule.java", "AutoPearlCatchModule.java"):
+              source = (root / name).read_text()
+              if ".selected" in source:
+                  raise SystemExit(name + " uses a private inventory field")
+              if "getSelectedSlot()" not in source or "setSelectedSlot(" not in source:
+                  raise SystemExit(name + " is missing selected-slot accessors")
           combat = (root / "AutoPearlCatchModule.java").read_text()
           if "public void onBindAction()" not in combat or "Items.ENDER_PEARL" not in combat:
               raise SystemExit("Manual pearl clutch action is incomplete")
