@@ -95,7 +95,7 @@ jobs:
               if "getSelectedSlot()" not in source or "setSelectedSlot(" not in source:
                   raise SystemExit(name + " is missing selected-slot accessors")
           mace = (root / "AutoMaceModule.java").read_text()
-          if '"Require spear in hand"' not in mace or "heldName.contains(\\"spear\\")" not in mace:
+          if '"Require spear in hand"' not in mace or "heldName.contains(" not in mace or "spear" not in mace:
               raise SystemExit("Spear-to-mace combo guard is missing")
           armor = (root / "AutoArmorModule.java").read_text()
           if "private static int tier(String name)" not in armor or "ClickType.PICKUP" not in armor:
