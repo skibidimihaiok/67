@@ -4,13 +4,13 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.ItemStack;
 
-/** Automatically fills empty armor slots from recognizable armor items in inventory. */
+/** Equips better armor from inventory and swaps the old piece back into its original slot. */
 public final class AutoArmorModule extends ClientModule {
     private final NumberSetting delay = add(NumberSetting.of("Delay (ticks)", 8, 1, 40, 1));
     private int wait;
 
     public AutoArmorModule() {
-        super("Auto Armor", "Equips armor from your inventory when the matching armor slot is empty.", Category.COMBAT);
+        super("Auto Armor", "Equips higher-tier armor from inventory and preserves the displaced armor.", Category.COMBAT);
     }
 
     @Override
@@ -19,26 +19,39 @@ public final class AutoArmorModule extends ClientModule {
         if (wait > 0) { wait--; return; }
         var inventory = client.player.getInventory();
         for (int i = 0; i < 36; i++) {
-            ItemStack stack = inventory.getItem(i);
-            if (stack.isEmpty()) continue;
-            String name = stack.getHoverName().getString().toLowerCase(java.util.Locale.ROOT);
-            net.minecraft.world.entity.EquipmentSlot slot = armorSlot(name);
-            if (slot == null || !client.player.getItemBySlot(slot).isEmpty()) continue;
-            int menuSlot = i < 9 ? i + 36 : i;
-            client.gameMode.handleInventoryMouseClick(
-                    client.player.inventoryMenu.containerId, menuSlot, 0,
-                    ClickType.QUICK_MOVE, client.player);
+            ItemStack candidate = inventory.getItem(i);
+            if (candidate.isEmpty()) continue;
+            String name = candidate.getHoverName().getString().toLowerCase(java.util.Locale.ROOT);
+            int armorSlot = armorMenuSlot(name);
+            if (armorSlot < 0) continue;
+            ItemStack worn = client.player.inventoryMenu.getSlot(armorSlot).getItem();
+            if (tier(name) <= tier(worn.getHoverName().getString().toLowerCase(java.util.Locale.ROOT))) continue;
+            int inventorySlot = i < 9 ? i + 36 : i;
+            int container = client.player.inventoryMenu.containerId;
+            client.gameMode.handleInventoryMouseClick(container, inventorySlot, 0, ClickType.PICKUP, client.player);
+            client.gameMode.handleInventoryMouseClick(container, armorSlot, 0, ClickType.PICKUP, client.player);
+            client.gameMode.handleInventoryMouseClick(container, inventorySlot, 0, ClickType.PICKUP, client.player);
             wait = delay.getInt();
             return;
         }
     }
 
-    private static net.minecraft.world.entity.EquipmentSlot armorSlot(String name) {
-        if (name.contains("helmet")) return net.minecraft.world.entity.EquipmentSlot.HEAD;
-        if (name.contains("chestplate")) return net.minecraft.world.entity.EquipmentSlot.CHEST;
-        if (name.contains("leggings")) return net.minecraft.world.entity.EquipmentSlot.LEGS;
-        if (name.contains("boots")) return net.minecraft.world.entity.EquipmentSlot.FEET;
-        return null;
+    private static int armorMenuSlot(String name) {
+        if (name.contains("helmet")) return 5;
+        if (name.contains("chestplate")) return 6;
+        if (name.contains("leggings")) return 7;
+        if (name.contains("boots")) return 8;
+        return -1;
+    }
+
+    private static int tier(String name) {
+        if (name.contains("netherite")) return 6;
+        if (name.contains("diamond")) return 5;
+        if (name.contains("iron")) return 4;
+        if (name.contains("golden")) return 3;
+        if (name.contains("chainmail")) return 2;
+        if (name.contains("leather")) return 1;
+        return 0;
     }
 
     @Override
