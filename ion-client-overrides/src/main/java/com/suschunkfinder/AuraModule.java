@@ -38,11 +38,11 @@ public final class AuraModule extends ClientModule {
     }
 
     private boolean weaponAllowed(Minecraft client) {
-        var item = client.player.getMainHandItem().getItem();
+        String name = client.player.getMainHandItem().getHoverName().getString().toLowerCase(java.util.Locale.ROOT);
         return switch (weapon.index()) {
-            case 1 -> item instanceof net.minecraft.world.item.SwordItem;
-            case 2 -> item instanceof net.minecraft.world.item.AxeItem;
-            case 3 -> item == net.minecraft.world.item.Items.MACE;
+            case 1 -> name.contains("sword");
+            case 2 -> name.contains("axe");
+            case 3 -> client.player.getMainHandItem().is(net.minecraft.world.item.Items.MACE);
             default -> true;
         };
     }
