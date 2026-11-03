@@ -1,28 +1,7 @@
 package com.suschunkfinder;
-
-import java.util.concurrent.ThreadLocalRandom;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.core.particles.ParticleTypes;
-
-/** Small sparkle particles near the ground around the player. */
-public final class WorldSparklesModule extends ClientModule {
-    private final NumberSetting amount = add(NumberSetting.of("Sparkles per tick", 1, 1, 4, 1));
-    private final NumberSetting radius = add(NumberSetting.of("Radius", 3.0, 1.0, 8.0, 0.5));
-
-    public WorldSparklesModule() {
-        super("World Sparkles", "Adds subtle enchantment sparkles around the player.", Category.RENDER);
-    }
-
-    @Override
-    public void tick(Minecraft client) {
-        if (client.player == null || client.level == null) return;
-        ThreadLocalRandom random = ThreadLocalRandom.current();
-        for (int i = 0; i < amount.getInt(); i++) {
-            double x = client.player.getX() + random.nextDouble(-radius.get(), radius.get());
-            double y = client.player.getY() + random.nextDouble(0.05, 0.8);
-            double z = client.player.getZ() + random.nextDouble(-radius.get(), radius.get());
-            client.level.addParticle(ParticleTypes.ENCHANT, x, y, z, 0.0, 0.025, 0.0);
-        }
-    }
+import net.minecraft.client.Minecraft; import net.minecraft.world.phys.Vec3;
+public final class WorldSparklesModule extends ClientModule implements EspSource {
+ private final NumberSetting radius=add(NumberSetting.of("Radius",3,1,8,0.5)); private final NumberSetting count=add(NumberSetting.of("Glints",8,2,20,1));
+ public WorldSparklesModule(){super("World Sparkles","Floating custom geometric glints around you, not game particles.",Category.RENDER);}
+ public void collect(EspBatch b,float pt){Minecraft c=Minecraft.getInstance();if(c.player==null)return;float[] q=VisualEffects.color();Vec3 p=c.player.position();double t=System.currentTimeMillis()*0.001;for(int i=0;i<count.getInt();i++){double a=t*0.35+i*Math.PI*2/count.getInt();double x=Math.cos(a)*radius.get(),z=Math.sin(a)*radius.get();Vec3 center=p.add(x,0.55+Math.sin(t+i*2)*0.35,z);double s=0.09+0.04*Math.sin(t*2+i);b.line(center.add(-s,0,0),center.add(s,0,0),q[0],q[1],q[2],0.8f,0.025);b.line(center.add(0,-s,0),center.add(0,s,0),q[0],q[1],q[2],0.8f,0.025);b.line(center.add(0,0,-s),center.add(0,0,s),q[0],q[1],q[2],0.8f,0.025);}}
 }
