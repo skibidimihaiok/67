@@ -195,21 +195,21 @@ jobs:
               private static final int GAP = 9;
               private static final ClientModule.Category[] CATS = ClientModule.Category.values();
               private static String lastSearch = "";
-              private int left, top, width, height, contentX, contentW, colW, selected;
+              private int left, top, panelWidth, panelHeight, contentX, contentW, colW, selected;
               private EditBox search;
 
               public ClickGuiScreen() { super(Component.literal("ION CLIENT")); }
               @Override public boolean isPauseScreen() { return false; }
 
               @Override protected void init() {
-                  width = Math.min(this.width - 24, 760);
-                  height = Math.min(this.height - 24, 430);
-                  left = (this.width - width) / 2;
-                  top = (this.height - height) / 2;
+                  panelWidth = Math.min(this.width - 24, 760);
+                  panelHeight = Math.min(this.height - 24, 430);
+                  left = (this.width - panelWidth) / 2;
+                  top = (this.height - panelHeight) / 2;
                   contentX = left + SIDEBAR + 15;
-                  contentW = width - SIDEBAR - 30;
+                  contentW = panelWidth - SIDEBAR - 30;
                   colW = (contentW - GAP * 2) / 3;
-                  search = new EditBox(font, left + width - 174, top + 15, 145, 18, Component.literal("Search modules"));
+                  search = new EditBox(font, left + panelWidth - 174, top + 15, 145, 18, Component.literal("Search modules"));
                   search.setMaxLength(32);
                   search.setValue(lastSearch);
                   search.setHint(Component.literal("Search modules..."));
@@ -237,7 +237,7 @@ jobs:
                       }
                   }
                   int listTop = top + 76;
-                  if (mx >= contentX && my >= listTop && my < top + height - 18) {
+                  if (mx >= contentX && my >= listTop && my < top + panelHeight - 18) {
                       int col = Math.min(2, Math.max(0, (int)(mx - contentX) / (colW + GAP)));
                       int row = (int)(my - listTop + SCROLL[selected]) / ROW_H;
                       List<ClientModule> list = modules();
@@ -254,7 +254,7 @@ jobs:
 
               @Override public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
                   int count = (modules().size() + 2) / 3;
-                  int visible = Math.max(1, (height - 100) / ROW_H);
+                  int visible = Math.max(1, (panelHeight - 100) / ROW_H);
                   SCROLL[selected] = Math.max(0, Math.min(Math.max(0, count - visible), SCROLL[selected] - (int)Math.signum(scrollY) * 2));
                   return true;
               }
@@ -262,7 +262,7 @@ jobs:
               @Override public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float delta) { }
 
               @Override public void render(GuiGraphics g, int mouseX, int mouseY, float delta) {
-                  int x = left, y = top, right = left + width, bottom = top + height;
+                  int x = left, y = top, right = left + panelWidth, bottom = top + panelHeight;
                   // Soft shadow and layered navy shell.
                   g.fill(x + 5, y + 6, right + 5, bottom + 6, 0x66000000);
                   g.fill(x, y, right, bottom, 0xF5091424);
@@ -300,7 +300,7 @@ jobs:
                   List<ClientModule> list = modules();
                   int perCol = (list.size() + 2) / 3;
                   int listTop = y + 76;
-                  int visible = Math.max(1, (height - 100) / ROW_H);
+                  int visible = Math.max(1, (panelHeight - 100) / ROW_H);
                   for (int col = 0; col < 3; col++) {
                       int cx = contentX + col * (colW + GAP);
                       g.fill(cx, listTop - 5, cx + colW, bottom - 16, 0x66304A64);
