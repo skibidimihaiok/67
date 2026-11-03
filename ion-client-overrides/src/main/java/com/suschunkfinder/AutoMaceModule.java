@@ -8,11 +8,12 @@ import net.minecraft.world.item.Items;
 public final class AutoMaceModule extends ClientModule {
     private final NumberSetting minFall = add(NumberSetting.of("Minimum fall distance", 1.5, 0.5, 8.0, 0.5));
     private final NumberSetting range = add(NumberSetting.of("Range", 4.0, 2.0, 6.0, 0.5));
+    private final ModeSetting requireSpear = add(ModeSetting.of("Require spear in hand", 1, "Off", "On"));
     private final ModeSetting stunSlam = add(ModeSetting.of("Stun Slam", 0, "Off", "On"));
     private int wait;
 
     public AutoMaceModule() {
-        super("Auto Mace", "Swaps to a hotbar mace and attacks only the player under your crosshair while falling.", Category.COMBAT);
+        super("Auto Mace", "When a spear is held, swaps to a hotbar mace and attacks only the crosshair player while falling.", Category.COMBAT);
     }
 
     @Override
@@ -22,6 +23,8 @@ public final class AutoMaceModule extends ClientModule {
         if (!(client.crosshairPickEntity instanceof Player target) || !target.isAlive()) return;
         if (client.player.distanceTo(target) > range.get()) return;
         if (client.player.onGround() || client.player.fallDistance < minFall.get()) return;
+        String heldName = client.player.getMainHandItem().getHoverName().getString().toLowerCase(java.util.Locale.ROOT);
+        if (requireSpear.index() == 1 && !heldName.contains("spear")) return;
         int maceSlot = -1;
         for (int i = 0; i < 9; i++) {
             if (client.player.getInventory().getItem(i).is(Items.MACE)) { maceSlot = i; break; }
