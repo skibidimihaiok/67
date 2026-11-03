@@ -28,13 +28,6 @@ jobs:
           mkdir ion-client
           unzip -q ION-CLIENT-visuals-experimental.zip -d ion-client
 
-      - name: Inspect extracted project sources
-        run: |
-          echo '=== PROJECT FILES ==='
-          find ion-client -maxdepth 6 -type f | sort | head -250
-          echo '=== JAVA SOURCES ==='
-          find ion-client/src/main/java -type f -name '*.java' -print -exec sed -n '1,260p' {} \\\;
-
       - name: Patch Minecraft 1.21.11 GUI source compatibility
         run: |
           python3 - <<'PY'
