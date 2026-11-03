@@ -31,9 +31,12 @@ jobs:
       - name: Inspect extracted project sources
         run: |
           echo '=== PROJECT FILES ==='
-          find ion-client -maxdepth 5 -type f | sort | head -250
+          find ion-client -maxdepth 10 -type f | sort | head -300
           echo '=== JAVA SOURCES ==='
-          find ion-client/src/main/java -type f -name '*.java' -print -exec sed -n '1,260p' {} \\\;
+          while IFS= read -r file; do
+            echo "===== $file ====="
+            sed -n '1,260p' "$file"
+          done < <(find ion-client -type f -name '*.java' | sort)
 
       - name: Patch Minecraft 1.21.11 GUI source compatibility
         run: |
