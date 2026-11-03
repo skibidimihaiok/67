@@ -44,6 +44,24 @@ jobs:
           manager.write_text(text)
           PY
 
+      - name: Validate registered ION modules
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("ion-client/src/main/java/com/suschunkfinder")
+          required = [
+              "SprintModule.java", "AutoJumpModule.java", "NoFallModule.java",
+              "TriggerBotModule.java", "HighJumpModule.java", "AirJumpModule.java",
+              "DolphinModule.java", "SpeedModule.java", "LongJumpModule.java",
+              "ParkourModule.java", "AmbientParticlesModule.java",
+              "WorldSparklesModule.java", "AutoTotemModule.java"
+          ]
+          missing = [name for name in required if not (root / name).is_file()]
+          if missing:
+              raise SystemExit("Missing registered module sources: " + ", ".join(missing))
+          print(f"Validated {len(required)} ION module source files.")
+          PY
+
       - name: Inspect extracted project sources
         run: |
           echo '=== PROJECT FILES ==='
