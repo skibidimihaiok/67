@@ -97,6 +97,9 @@ jobs:
           mace = (root / "AutoMaceModule.java").read_text()
           if '"Require spear in hand"' not in mace or "heldName.contains(" not in mace or "spear" not in mace:
               raise SystemExit("Spear-to-mace combo guard is missing")
+          knockback = (root / "AntiKnockbackModule.java").read_text()
+          if '"Horizontal velocity %", 0' not in knockback or '"Vertical velocity %", 0' not in knockback:
+              raise SystemExit("Anti Knockback defaults are not zero velocity")
           armor = (root / "AutoArmorModule.java").read_text()
           if "private static int tier(String name)" not in armor or "ClickType.PICKUP" not in armor:
               raise SystemExit("Auto Armor upgrade-and-swap logic is missing")
