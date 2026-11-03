@@ -68,6 +68,9 @@ jobs:
           base = (root / "ClientModule.java").read_text()
           if "public void onBindAction() { tick(Minecraft.getInstance()); }" not in base:
               raise SystemExit("Action bind hook is missing")
+          auto_totem = (root / "AutoTotemModule.java").read_text()
+          if "Keeps a totem in your offhand" not in auto_totem:
+              raise SystemExit("Auto Totem behavior description is missing")
           theme = (root / "ThemeModule.java").read_text()
           if '"Custom"' not in theme or '"Custom red"' not in theme:
               raise SystemExit("Custom RGB theme settings are missing")
