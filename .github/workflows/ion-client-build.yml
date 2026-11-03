@@ -53,7 +53,7 @@ jobs:
           from pathlib import Path
           root = Path("ion-client/src/main/java/com/suschunkfinder")
           required = [
-              "SprintModule.java", "AutoJumpModule.java", "NoFallModule.java", "AuraModule.java", "CriticalsModule.java", "AutoArmorModule.java", "OffhandModule.java", "GapModule.java", "AutoMaceModule.java", "AutoPearlCatchModule.java", "AutoPotionModule.java", "AutoCrystalModule.java", "SurroundModule.java", "AutoWebTrapModule.java", "AntiKnockbackModule.java", "TrapModule.java", "SurroundMinerModule.java", "SelfTrapModule.java", "ElytraTargetModule.java", "ElytraMaceTargetModule.java", "ElytraFreezeModule.java", "AttributeSwapModule.java", "AntiPhaseModule.java", "PearlPredictModule.java", "ProjectilePredictModule.java", "TrajectoriesModule.java", "AutoWitherModule.java", "TotemModule.java",
+              "SprintModule.java", "AutoJumpModule.java", "NoFallModule.java", "AuraModule.java", "CriticalsModule.java", "AutoArmorModule.java", "OffhandModule.java", "GapModule.java", "AutoMaceModule.java", "AutoPearlCatchModule.java", "AutoPotionModule.java", "AutoCrystalModule.java", "SurroundModule.java", "AutoWebTrapModule.java", "AntiKnockbackModule.java", "TrapModule.java", "SurroundMinerModule.java", "SelfTrapModule.java", "ElytraTargetModule.java", "ElytraMaceTargetModule.java", "ElytraFreezeModule.java", "AttributeSwapModule.java", "AntiPhaseModule.java", "PearlPredictModule.java", "ProjectilePredictModule.java", "TrajectoriesModule.java", "AutoWitherModule.java", "TotemModule.java", "TotemModule.java",
               "TriggerBotModule.java", "HighJumpModule.java", "AirJumpModule.java",
               "DolphinModule.java", "SpeedModule.java", "LongJumpModule.java",
               "ParkourModule.java", "AmbientParticlesModule.java",
@@ -94,6 +94,12 @@ jobs:
                   raise SystemExit(name + " uses a private inventory field")
               if "getSelectedSlot()" not in source or "setSelectedSlot(" not in source:
                   raise SystemExit(name + " is missing selected-slot accessors")
+          mace = (root / "AutoMaceModule.java").read_text()
+          if '"Require spear in hand"' not in mace or "heldName.contains(\\"spear\\")" not in mace:
+              raise SystemExit("Spear-to-mace combo guard is missing")
+          armor = (root / "AutoArmorModule.java").read_text()
+          if "private static int tier(String name)" not in armor or "ClickType.PICKUP" not in armor:
+              raise SystemExit("Auto Armor upgrade-and-swap logic is missing")
           combat = (root / "AutoPearlCatchModule.java").read_text()
           if "public void onBindAction()" not in combat or "Items.ENDER_PEARL" not in combat:
               raise SystemExit("Manual pearl clutch action is incomplete")
