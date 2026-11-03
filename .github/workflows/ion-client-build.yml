@@ -172,6 +172,159 @@ jobs:
           settings.write_text(text)
           PY
 
+      - name: Replace the old ClickGUI with the Prestige-inspired layout
+        run: |
+          cat > ion-client/src/main/java/com/suschunkfinder/ClickGuiScreen.java <<'JAVA'
+          package com.suschunkfinder;
+
+          import java.util.ArrayList;
+          import java.util.List;
+          import java.util.Locale;
+
+          import net.minecraft.client.gui.GuiGraphics;
+          import net.minecraft.client.gui.components.EditBox;
+          import net.minecraft.client.gui.screens.Screen;
+          import net.minecraft.client.input.MouseButtonEvent;
+          import net.minecraft.network.chat.Component;
+
+          /** Prestige-inspired ION ClickGUI: sidebar, search header and three module columns. */
+          public class ClickGuiScreen extends Screen {
+              private static final int[] SCROLL = new int[ClientModule.Category.values().length];
+              private static final int SIDEBAR = 112;
+              private static final int ROW_H = 27;
+              private static final int GAP = 9;
+              private static final ClientModule.Category[] CATS = ClientModule.Category.values();
+              private static String lastSearch = "";
+              private int left, top, width, height, contentX, contentW, colW, selected;
+              private EditBox search;
+
+              public ClickGuiScreen() { super(Component.literal("ION CLIENT")); }
+              @Override public boolean isPauseScreen() { return false; }
+
+              @Override protected void init() {
+                  width = Math.min(this.width - 24, 760);
+                  height = Math.min(this.height - 24, 430);
+                  left = (this.width - width) / 2;
+                  top = (this.height - height) / 2;
+                  contentX = left + SIDEBAR + 15;
+                  contentW = width - SIDEBAR - 30;
+                  colW = (contentW - GAP * 2) / 3;
+                  search = new EditBox(font, left + width - 174, top + 15, 145, 18, Component.literal("Search modules"));
+                  search.setMaxLength(32);
+                  search.setValue(lastSearch);
+                  search.setHint(Component.literal("Search modules..."));
+                  search.setResponder(value -> { lastSearch = value; SCROLL[selected] = 0; });
+                  addRenderableWidget(search);
+              }
+
+              private List<ClientModule> modules() {
+                  List<ClientModule> out = new ArrayList<>();
+                  String q = lastSearch.trim().toLowerCase(Locale.ROOT);
+                  for (ClientModule m : ModuleManager.in(CATS[selected])) {
+                      if (q.isEmpty() || m.name.toLowerCase(Locale.ROOT).contains(q)) out.add(m);
+                  }
+                  return out;
+              }
+
+              @Override public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+                  if (super.mouseClicked(event, doubleClick)) return true;
+                  double mx = event.x(), my = event.y();
+                  int sx = left + 12, sy = top + 66;
+                  for (int i = 0; i < CATS.length; i++) {
+                      int y = sy + i * 34;
+                      if (mx >= sx && mx < left + SIDEBAR - 10 && my >= y && my < y + 29) {
+                          selected = i; SCROLL[selected] = 0; return true;
+                      }
+                  }
+                  int listTop = top + 76;
+                  if (mx >= contentX && my >= listTop && my < top + height - 18) {
+                      int col = Math.min(2, Math.max(0, (int)(mx - contentX) / (colW + GAP)));
+                      int row = (int)(my - listTop + SCROLL[selected]) / ROW_H;
+                      List<ClientModule> list = modules();
+                      int index = col * ((list.size() + 2) / 3) + row;
+                      if (index >= 0 && index < list.size()) {
+                          ClientModule module = list.get(index);
+                          if (event.button() == 1) minecraft.setScreen(new ModuleSettingsScreen(module, this));
+                          else if (event.button() == 0) module.setEnabled(!module.isEnabled());
+                          return true;
+                      }
+                  }
+                  return false;
+              }
+
+              @Override public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+                  int count = (modules().size() + 2) / 3;
+                  int visible = Math.max(1, (height - 100) / ROW_H);
+                  SCROLL[selected] = Math.max(0, Math.min(Math.max(0, count - visible), SCROLL[selected] - (int)Math.signum(scrollY) * 2));
+                  return true;
+              }
+
+              @Override public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float delta) { }
+
+              @Override public void render(GuiGraphics g, int mouseX, int mouseY, float delta) {
+                  int x = left, y = top, right = left + width, bottom = top + height;
+                  // Soft shadow and layered navy shell.
+                  g.fill(x + 5, y + 6, right + 5, bottom + 6, 0x66000000);
+                  g.fill(x, y, right, bottom, 0xF5091424);
+                  g.fill(x + 1, y + 1, right - 1, bottom - 1, 0xF80A1729);
+                  g.fill(x + 1, y + 1, right - 1, y + 53, 0xFF0C1B31);
+                  g.fill(x + 1, y + 52, right - 1, y + 54, 0xFF15314A);
+                  g.fill(x + SIDEBAR, y + 54, x + SIDEBAR + 1, bottom - 1, 0xFF1A3550);
+                  g.fill(x + 1, y + 1, x + 3, bottom - 1, 0xFF19C8E5);
+
+                  g.drawString(font, "ION", x + 18, y + 13, 0xFF25D8F2, true);
+                  g.drawString(font, "CLIENT", x + 43, y + 13, 0xFFF1F6FC, true);
+                  g.drawString(font, "V1.0  /  FABRIC 1.21.11", x + 19, y + 29, 0xFF819BB7, false);
+                  g.drawString(font, "×", right - 19, y + 17, 0xFF9CB5D0, false);
+
+                  String[] labels = {"Combat", "Render", "Movement", "Client", "Macro", "Misc"};
+                  for (int i = 0; i < CATS.length; i++) {
+                      int cy = y + 66 + i * 34;
+                      boolean active = i == selected;
+                      if (active) {
+                          g.fill(x + 10, cy, x + SIDEBAR - 10, cy + 29, 0xFF183B56);
+                          g.fill(x + 10, cy + 3, x + 12, cy + 26, 0xFF24CBE7);
+                      }
+                      String label = i < labels.length ? labels[i] : CATS[i].label;
+                      g.drawString(font, label, x + 27, cy + 10, active ? 0xFFF4FBFF : 0xFF91A9C2, false);
+                  }
+                  g.fill(x + 12, bottom - 45, x + SIDEBAR - 12, bottom - 44, 0xFF20364D);
+                  g.drawString(font, "ION CLIENT", x + 19, bottom - 34, 0xFFEAF5FF, true);
+                  g.drawString(font, "CUSTOM BUILD", x + 19, bottom - 20, 0xFF7893AF, false);
+
+                  String heading = CATS[selected].label;
+                  g.drawString(font, heading, contentX, y + 18, 0xFFF2F7FF, true);
+                  g.drawString(font, "MODULES  /  " + modules().size(), contentX, y + 35, 0xFF7895B2, false);
+                  super.render(g, mouseX, mouseY, delta);
+
+                  List<ClientModule> list = modules();
+                  int perCol = (list.size() + 2) / 3;
+                  int listTop = y + 76;
+                  int visible = Math.max(1, (height - 100) / ROW_H);
+                  for (int col = 0; col < 3; col++) {
+                      int cx = contentX + col * (colW + GAP);
+                      g.fill(cx, listTop - 5, cx + colW, bottom - 16, 0x66304A64);
+                      g.fill(cx + 1, listTop - 4, cx + colW - 1, bottom - 17, 0xC90B1A2B);
+                      for (int row = 0; row < visible; row++) {
+                          int index = col * perCol + row + SCROLL[selected];
+                          if (index >= list.size()) break;
+                          ClientModule m = list.get(index);
+                          int ry = listTop + row * ROW_H;
+                          boolean over = mouseX >= cx && mouseX < cx + colW && mouseY >= ry && mouseY < ry + ROW_H - 2;
+                          g.fill(cx + 7, ry, cx + colW - 7, ry + ROW_H - 3, over ? 0xFF172D43 : 0xB50E2033);
+                          g.drawString(font, Hud.fit(m.name, colW - 48), cx + 15, ry + 8, m.isEnabled() ? 0xFFF4FBFF : 0xFFB5C7D9, false);
+                          int tx = cx + colW - 31, ty = ry + 7;
+                          g.fill(tx, ty, tx + 19, ty + 12, m.isEnabled() ? 0xFF147D98 : 0xFF263D55);
+                          int knob = m.isEnabled() ? tx + 12 : tx + 2;
+                          g.fill(knob, ty + 2, knob + 8, ty + 10, m.isEnabled() ? 0xFF62E8F7 : 0xFFB7C7D8);
+                      }
+                  }
+                  String footer = "LEFT CLICK  Toggle     RIGHT CLICK  Settings     SCROLL  More modules";
+                  g.drawString(font, Hud.fit(footer, contentW), contentX, bottom - 11, 0xFF7895B2, false);
+              }
+          }
+          JAVA
+
       - name: Build Fabric mod (retry transient downloads)
         working-directory: ion-client
         run: |
