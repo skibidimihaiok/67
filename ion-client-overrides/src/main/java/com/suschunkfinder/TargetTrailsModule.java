@@ -1,40 +1,9 @@
 package com.suschunkfinder;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.phys.Vec3;
-
-/** Leaves a short particle trail behind the living entity under the crosshair. */
-public final class TargetTrailsModule extends ClientModule {
-    private final NumberSetting points = add(NumberSetting.of("Trail points", 3, 1, 8, 1));
-    private Vec3 previous;
-
-    public TargetTrailsModule() {
-        super("Target Trails", "Leaves a subtle trail behind your current crosshair target.", Category.RENDER);
-    }
-
-    @Override
-    public void tick(Minecraft client) {
-        if (client.player == null || client.level == null || client.screen != null
-                || !(client.crosshairPickEntity instanceof LivingEntity target) || !target.isAlive()) {
-            previous = null;
-            return;
-        }
-        Vec3 current = new Vec3(target.getX(), target.getY() + target.getBbHeight() * 0.5, target.getZ());
-        if (previous != null) {
-            for (int i = 1; i <= points.getInt(); i++) {
-                double t = (double) i / (points.getInt() + 1);
-                client.level.addParticle(ParticleTypes.END_ROD,
-                        previous.x + (current.x - previous.x) * t,
-                        previous.y + (current.y - previous.y) * t,
-                        previous.z + (current.z - previous.z) * t,
-                        0.0, 0.005, 0.0);
-            }
-        }
-        previous = current;
-    }
-
-    @Override
-    protected void onDisable() { previous = null; }
+import java.util.*; import net.minecraft.client.Minecraft; import net.minecraft.world.entity.LivingEntity; import net.minecraft.world.phys.Vec3;
+public final class TargetTrailsModule extends ClientModule implements EspSource {
+ private final NumberSetting length=add(NumberSetting.of("Trail length",24,4,60,1)); private final ArrayDeque<Vec3> path=new ArrayDeque<>(); private int target=-1;
+ public TargetTrailsModule(){super("Target Trails","Smooth animated ribbon following the crosshair target.",Category.RENDER);}
+ public void tick(Minecraft c){if(!(c.crosshairPickEntity instanceof LivingEntity e)||!e.isAlive()){path.clear();target=-1;return;}if(target!=e.getId()){path.clear();target=e.getId();}Vec3 p=e.position().add(0,e.getBbHeight()*0.5,0);if(path.isEmpty()||path.getLast().distanceToSqr(p)>0.012){path.addLast(p);while(path.size()>length.getInt())path.removeFirst();}}
+ public void collect(EspBatch b,float pt){float[] q=VisualEffects.color();VisualEffects.trail(b,new ArrayList<>(path),q[0],q[1],q[2]);}
+ protected void onDisable(){path.clear();target=-1;}
 }
