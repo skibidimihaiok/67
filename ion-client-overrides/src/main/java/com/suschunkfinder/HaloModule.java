@@ -1,29 +1,7 @@
 package com.suschunkfinder;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.core.particles.ParticleTypes;
-
-/** Draws a floating particle halo over the local player's head. */
-public final class HaloModule extends ClientModule {
-    private final NumberSetting radius = add(NumberSetting.of("Radius", 0.45, 0.2, 1.0, 0.05));
-    private final NumberSetting height = add(NumberSetting.of("Height", 2.0, 1.5, 3.0, 0.1));
-    private final NumberSetting count = add(NumberSetting.of("Particles", 10, 4, 20, 1));
-
-    public HaloModule() {
-        super("Halo", "Creates a floating ring of particles above your head.", Category.RENDER);
-    }
-
-    @Override
-    public void tick(Minecraft client) {
-        if (client.player == null || client.level == null) return;
-        double phase = System.currentTimeMillis() * 0.003;
-        for (int i = 0; i < count.getInt(); i++) {
-            double angle = phase + Math.PI * 2.0 * i / count.getInt();
-            client.level.addParticle(ParticleTypes.END_ROD,
-                    client.player.getX() + Math.cos(angle) * radius.get(),
-                    client.player.getY() + height.get(),
-                    client.player.getZ() + Math.sin(angle) * radius.get(),
-                    0.0, 0.0, 0.0);
-        }
-    }
+import net.minecraft.client.Minecraft; import net.minecraft.world.phys.Vec3;
+public final class HaloModule extends ClientModule implements EspSource {
+ private final NumberSetting radius=add(NumberSetting.of("Radius",0.55,0.2,1,0.05)); private final NumberSetting height=add(NumberSetting.of("Height",2,1.5,3,0.1));
+ public HaloModule(){super("Halo","Smooth double neon halo above your head.",Category.RENDER);}
+ public void collect(EspBatch b,float pt){Minecraft c=Minecraft.getInstance();if(c.player==null)return;float[] q=VisualEffects.color();Vec3 p=c.player.position();double t=System.currentTimeMillis()*0.001;VisualEffects.circle(b,p,radius.get(),height.get(),q[0],q[1],q[2],0.95f,0.045);VisualEffects.circle(b,p,radius.get()*0.72,height.get()+Math.sin(t)*0.08,q[0],q[1],q[2],0.55f,0.025);}
 }
