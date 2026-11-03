@@ -14,13 +14,15 @@ import net.minecraft.network.chat.Component;
 /** Settings screen for one module, including bind capture and bind activation mode. */
 public class ModuleSettingsScreen extends Screen {
     private static final int COL_W = 190;
-    private static final int ROW = 24;
+    private static final int ROW = 32;
 
     private record Label(Supplier<String> text, int x, int y) {}
+    private record Slider(NumberSetting setting, int x, int y) {}
 
     private final ClientModule module;
     private final Screen parent;
     private final List<Label> labels = new ArrayList<>();
+    private final List<Slider> sliders = new ArrayList<>();
     private boolean waitingForBind;
     private Button bindButton;
     private Button bindModeButton;
@@ -37,6 +39,7 @@ public class ModuleSettingsScreen extends Screen {
     @Override
     protected void init() {
         labels.clear();
+        sliders.clear();
         int left = this.width / 2 - COL_W + 6;
         int top = 56;
         int rows = Math.max(3, (this.height - top - 54) / ROW);
@@ -68,6 +71,7 @@ public class ModuleSettingsScreen extends Screen {
                         .bounds(x + 122, y, 22, 20).build());
                 this.addRenderableWidget(Button.builder(Component.literal("+"), b -> { number.change(true); ModuleManager.save(); })
                         .bounds(x + 148, y, 22, 20).build());
+                sliders.add(new Slider(number, x, y + 22));
             } else {
                 this.addRenderableWidget(Button.builder(Component.literal(setting.name + ": " + setting.valueText()), b -> {
                     setting.next();
@@ -102,6 +106,18 @@ public class ModuleSettingsScreen extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        if (!waitingForBind && event.button() == 0) {
+            for (Slider slider : sliders) {
+                if (event.x() >= slider.x() && event.x() <= slider.x() + 170
+                        && event.y() >= slider.y() && event.y() <= slider.y() + 6) {
+                    double fraction = Math.max(0.0, Math.min(1.0, (event.x() - slider.x()) / 170.0));
+                    NumberSetting number = slider.setting();
+                    number.set(number.min() + (number.max() - number.min()) * fraction);
+                    ModuleManager.save();
+                    return true;
+                }
+            }
+        }
         if (waitingForBind) {
             waitingForBind = false;
             ModuleKeybinds.set(module, -event.button() - 1);
@@ -142,6 +158,15 @@ public class ModuleSettingsScreen extends Screen {
         graphics.drawString(this.font, module.description, left, 33, 0xFF8890A0);
         for (Label label : labels) {
             graphics.drawString(this.font, label.text().get(), label.x(), label.y(), Hud.WHITE);
+        }
+        for (Slider slider : sliders) {
+            NumberSetting number = slider.setting();
+            int x = slider.x();
+            int y = slider.y();
+            int filled = (int) Math.round(170.0 * (number.get() - number.min())
+                    / Math.max(0.0001, number.max() - number.min()));
+            graphics.fill(x, y, x + 170, y + 4, 0xFF34313D);
+            graphics.fill(x, y, x + Math.max(0, Math.min(170, filled)), y + 4, Hud.accent());
         }
     }
 }
