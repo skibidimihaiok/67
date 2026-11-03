@@ -1,36 +1,9 @@
 package com.suschunkfinder;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.world.phys.Vec3;
-
-/** Emits small particles at the player's feet while walking. */
-public final class FootstepParticlesModule extends ClientModule {
-    private final NumberSetting interval = add(NumberSetting.of("Step interval", 5, 2, 12, 1));
-    private int ticks;
-    private Vec3 lastPosition;
-
-    public FootstepParticlesModule() {
-        super("Footstep Particles", "Emits a small particle puff as you walk.", Category.RENDER);
-    }
-
-    @Override
-    public void tick(Minecraft client) {
-        if (client.player == null || client.level == null || client.screen != null) return;
-        Vec3 position = client.player.position();
-        if (!client.player.onGround() || (lastPosition != null && position.distanceToSqr(lastPosition) < 0.0004)) {
-            lastPosition = position;
-            return;
-        }
-        lastPosition = position;
-        if (++ticks < interval.getInt()) return;
-        ticks = 0;
-        client.level.addParticle(ParticleTypes.CLOUD, position.x, position.y + 0.05, position.z, 0.0, 0.01, 0.0);
-    }
-
-    @Override
-    protected void onDisable() {
-        ticks = 0;
-        lastPosition = null;
-    }
+import java.util.*; import net.minecraft.client.Minecraft; import net.minecraft.world.phys.Vec3;
+public final class FootstepParticlesModule extends ClientModule implements EspSource {
+ private final List<double[]> rings=new ArrayList<>(); private Vec3 last;
+ public FootstepParticlesModule(){super("Footstep Particles","Expanding ground rings at each step; no vanilla particles.",Category.RENDER);}
+ public void tick(Minecraft c){if(c.player==null)return;Vec3 p=c.player.position();if(c.player.onGround()&&(last==null||p.distanceToSqr(last)>0.04)){rings.add(new double[]{p.x,p.y+0.025,p.z,System.currentTimeMillis()});if(rings.size()>12)rings.remove(0);}last=p;}
+ public void collect(EspBatch b,float pt){float[] q=VisualEffects.color();long n=System.currentTimeMillis();rings.removeIf(v->n-v[3]>650);for(double[] v:rings){double a=(n-v[3])/650.0;VisualEffects.circle(b,new Vec3(v[0],v[1],v[2]),0.15+a*0.75,0,q[0],q[1],q[2],(float)(0.85*(1-a)),0.035);}}
+ protected void onDisable(){rings.clear();last=null;}
 }
