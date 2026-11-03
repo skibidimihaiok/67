@@ -47,7 +47,7 @@ public abstract class ClientModule {
     protected void onDisable() {}
 
     /** Invoked by a keybind configured to Action mode. */
-    public void onBindAction() {}
+    public void onBindAction() { tick(Minecraft.getInstance()); }
 
     /** Called every game tick while the module is on. */
     public void tick(Minecraft client) {}
