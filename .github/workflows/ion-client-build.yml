@@ -36,7 +36,7 @@ jobs:
           manager = Path("ion-client/src/main/java/com/suschunkfinder/ModuleManager.java")
           text = manager.read_text()
           marker = "\t\t// Macro"
-          additions = "\t\tMODULES.add(new SprintModule());\n\t\tMODULES.add(new AutoJumpModule());\n\t\tMODULES.add(new NoFallModule());\n\t\tMODULES.add(new TriggerBotModule());\n\t\tMODULES.add(new AutoTotemModule());\n\t\tMODULES.add(new HighJumpModule());\n\t\tMODULES.add(new AirJumpModule());\n\t\tMODULES.add(new DolphinModule());\n\t\tMODULES.add(new SpeedModule());\n\t\tMODULES.add(new LongJumpModule());\n\t\tMODULES.add(new ParkourModule());\n\t\tMODULES.add(new AmbientParticlesModule());\n\t\tMODULES.add(new WorldSparklesModule());\n\t\tMODULES.add(new TargetHighlightModule());\n\t\tMODULES.add(new FootstepParticlesModule());\n"
+          additions = "\t\tMODULES.add(new SprintModule());\n\t\tMODULES.add(new AutoJumpModule());\n\t\tMODULES.add(new NoFallModule());\n\t\tMODULES.add(new TriggerBotModule());\n\t\tMODULES.add(new AutoTotemModule());\n\t\tMODULES.add(new HighJumpModule());\n\t\tMODULES.add(new AirJumpModule());\n\t\tMODULES.add(new DolphinModule());\n\t\tMODULES.add(new SpeedModule());\n\t\tMODULES.add(new LongJumpModule());\n\t\tMODULES.add(new ParkourModule());\n\t\tMODULES.add(new AmbientParticlesModule());\n\t\tMODULES.add(new WorldSparklesModule());\n\t\tMODULES.add(new TargetHighlightModule());\n\t\tMODULES.add(new FootstepParticlesModule());\n\t\tMODULES.add(new TargetHudModule());\n"
           if "new SprintModule()" not in text:
               if marker not in text:
                   raise SystemExit("Could not find movement registration point in ModuleManager")
@@ -55,7 +55,7 @@ jobs:
               "DolphinModule.java", "SpeedModule.java", "LongJumpModule.java",
               "ParkourModule.java", "AmbientParticlesModule.java",
               "WorldSparklesModule.java", "AutoTotemModule.java",
-              "TargetHighlightModule.java", "FootstepParticlesModule.java"
+              "TargetHighlightModule.java", "FootstepParticlesModule.java",\n              "TargetHudModule.java"
           ]
           missing = [name for name in required if not (root / name).is_file()]
           if missing:
