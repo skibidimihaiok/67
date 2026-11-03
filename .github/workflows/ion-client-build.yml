@@ -1,0 +1,42 @@
+name: Build ION CLIENT
+
+on:
+  push:
+    paths:
+      - 'ION-CLIENT-visuals-experimental.zip'
+      - '.github/workflows/ion-client-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Extract ION CLIENT source
+        run: |
+          mkdir ion-client
+          unzip -q ION-CLIENT-visuals-experimental.zip -d ion-client
+
+      - name: Build Fabric mod
+        working-directory: ion-client
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon build
+
+      - name: Upload built JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: ION-CLIENT-jar
+          path: ion-client/build/libs/*.jar
+          if-no-files-found: error
