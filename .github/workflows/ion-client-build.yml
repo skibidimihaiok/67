@@ -41,7 +41,7 @@ jobs:
               if marker not in text:
                   raise SystemExit("Could not find movement registration point in ModuleManager")
               text = text.replace(marker, additions + marker, 1)
-          for name in ("Aura", "Criticals", "Auto Armor", "Offhand", "Gap", "Auto Mace", "Auto Pearl Catch", "Auto Potion", "Auto Crystal", "Surround", "Auto Web Trap", "Anti Knockback", "Trap", "Surround Miner", "Self Trap", "Elytra Target", "Elytra Mace Target", "Elytra Freeze", "Attribute Swap", "Anti Phase", "Pearl Predict", "Projectile Predict", "Trajectories", "Auto Wither", "Totem", "Trigger Bot", "Auto Totem"):
+          for name in ("Aura", "Criticals", "Auto Armor", "Offhand", "Gap", "Auto Mace", "Auto Pearl Catch", "Auto Potion", "Auto Crystal", "Surround", "Auto Web Trap", "Anti Knockback", "Trap", "Surround Miner", "Self Trap", "Elytra Target", "Elytra Mace Target", "Elytra Freeze", "Attribute Swap", "Anti Phase", "Pearl Predict", "Projectile Predict", "Trajectories", "Auto Wither", "Totem", "Trigger Bot", "Auto Totem", "Anti Aim"):
               import re
               text = re.sub(r'^\s*\{"' + re.escape(name) + r'", [^\n]*\},?\n', '', text, flags=re.MULTILINE)
           manager.write_text(text)
