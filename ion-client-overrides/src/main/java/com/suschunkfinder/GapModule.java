@@ -23,7 +23,7 @@ public final class GapModule extends ClientModule {
             restoreSlot = -1;
         }
         if (wait > 0) { wait--; return; }
-        if (client.player.getHealth() > health.get() || client.player.getFoodData().needsFood()) return;
+        if (client.player.getHealth() > health.get()) return;
         int slot = -1;
         for (int i = 0; i < 9; i++) {
             if (client.player.getInventory().getItem(i).is(Items.GOLDEN_APPLE)
