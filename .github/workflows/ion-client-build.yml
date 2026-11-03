@@ -28,12 +28,59 @@ jobs:
           mkdir ion-client
           unzip -q ION-CLIENT-visuals-experimental.zip -d ion-client
 
-      - name: Show failing source sections
+      - name: Patch Minecraft 1.21.11 GUI source compatibility
         run: |
-          echo '--- ClickGuiScreen.java ---'
-          nl -ba ion-client/src/main/java/com/suschunkfinder/ClickGuiScreen.java | sed -n '125,180p'
-          echo '--- ModuleSettingsScreen.java ---'
-          nl -ba ion-client/src/main/java/com/suschunkfinder/ModuleSettingsScreen.java | sed -n '1,130p'
+          python3 - <<'PY'
+          from pathlib import Path
+
+          click = Path("ion-client/src/main/java/com/suschunkfinder/ClickGuiScreen.java")
+          text = click.read_text()
+          old = """\t\t\tString title = i == 0 ? "Search" : CATS[i - 1].label;
+
+                      // Layered panel edge, dark surface, and thin purple highlight.
+                      g.fill(x + 2, TOP + 2, x + panelW + 2, top + visible + 2, 0x55000000);
+                      g.fill(x, TOP, x + panelW, top + visible, 0xFF252033);
+          """
+          new = """\t\t\tString title = i == 0 ? "Search" : CATS[i - 1].label;
+                      List<ClientModule> list = listFor(i);
+                      int top = bodyTop(i);
+                      int visible = visibleHeight(i);
+
+                      // Layered panel edge, dark surface, and thin purple highlight.
+                      g.fill(x + 2, TOP + 2, x + panelW + 2, top + visible + 2, 0x55000000);
+                      g.fill(x, TOP, x + panelW, top + visible, 0xFF252033);
+          """
+          if old not in text:
+              raise SystemExit("Could not safely locate ClickGuiScreen panel block")
+          text = text.replace(old, new, 1)
+          duplicate = """\t\t\tList<ClientModule> list = listFor(i);
+          \t\t\tint top = bodyTop(i);
+          \t\t\tint visible = visibleHeight(i);
+          \t\t\tint maxScroll"""
+          replacement = """\t\t\tint maxScroll"""
+          if duplicate not in text:
+              raise SystemExit("Could not safely locate duplicate ClickGuiScreen declarations")
+          text = text.replace(duplicate, replacement, 1)
+          click.write_text(text)
+
+          settings = Path("ion-client/src/main/java/com/suschunkfinder/ModuleSettingsScreen.java")
+          text = settings.read_text()
+          text = text.replace(
+              "public boolean keyPressed(int keyCode, int scanCode, int modifiers) {",
+              "public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {"
+          )
+          text = text.replace(
+              "ModuleKeybinds.set(module, keyCode == 256 ? 0 : keyCode);",
+              "ModuleKeybinds.set(module, event.key() == 256 ? 0 : event.key());"
+          )
+          text = text.replace(
+              "return super.keyPressed(keyCode, scanCode, modifiers);",
+              "return super.keyPressed(event);"
+          )
+          if "keyPressed(int keyCode, int scanCode, int modifiers)" in text:
+              raise SystemExit("Old keyPressed signature still present")
+          settings.write_text(text)
+          PY
 
       - name: Build Fabric mod
         working-directory: ion-client
