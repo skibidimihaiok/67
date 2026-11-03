@@ -36,12 +36,12 @@ jobs:
           manager = Path("ion-client/src/main/java/com/suschunkfinder/ModuleManager.java")
           text = manager.read_text()
           marker = "\t\t// Macro"
-          additions = "\t\tMODULES.add(new SprintModule());\n\t\tMODULES.add(new AutoJumpModule());\n\t\tMODULES.add(new NoFallModule());\n\t\tMODULES.add(new TriggerBotModule());\n\t\tMODULES.add(new AutoTotemModule());\n\t\tMODULES.add(new AuraModule());\n\t\tMODULES.add(new CriticalsModule());\n\t\tMODULES.add(new AutoArmorModule());\n\t\tMODULES.add(new OffhandModule());\n\t\tMODULES.add(new GapModule());\n\t\tMODULES.add(new AutoMaceModule());\n\t\tMODULES.add(new HighJumpModule());\n\t\tMODULES.add(new AirJumpModule());\n\t\tMODULES.add(new DolphinModule());\n\t\tMODULES.add(new SpeedModule());\n\t\tMODULES.add(new LongJumpModule());\n\t\tMODULES.add(new ParkourModule());\n\t\tMODULES.add(new StepModule());\n\t\tMODULES.add(new SpiderModule());\n\t\tMODULES.add(new ElytraBoostModule());\n\t\tMODULES.add(new LandingEffectsModule());\n\t\tMODULES.add(new OrbitParticlesModule());\n\t\tMODULES.add(new HaloModule());\n\t\tMODULES.add(new TargetTrailsModule());\n\t\tMODULES.add(new PlayerTrailsModule());\n\t\tMODULES.add(new CriticalParticlesModule());\n\t\tMODULES.add(new AmbientParticlesModule());\n\t\tMODULES.add(new WorldSparklesModule());\n\t\tMODULES.add(new TargetHighlightModule());\n\t\tMODULES.add(new FootstepParticlesModule());\n\t\tMODULES.add(new TargetHudModule());\n\t\tMODULES.add(new TotemCounterModule());\n\t\tMODULES.add(new HitmarkerModule());\n\t\tMODULES.add(new JumpEffectsModule());\n"
+          additions = "\t\tMODULES.add(new SprintModule());\n\t\tMODULES.add(new AutoJumpModule());\n\t\tMODULES.add(new NoFallModule());\n\t\tMODULES.add(new TriggerBotModule());\n\t\tMODULES.add(new AutoTotemModule());\n\t\tMODULES.add(new AuraModule());\n\t\tMODULES.add(new CriticalsModule());\n\t\tMODULES.add(new AutoArmorModule());\n\t\tMODULES.add(new OffhandModule());\n\t\tMODULES.add(new GapModule());\n\t\tMODULES.add(new AutoMaceModule());\n\t\tMODULES.add(new AutoPearlCatchModule());\n\t\tMODULES.add(new HighJumpModule());\n\t\tMODULES.add(new AirJumpModule());\n\t\tMODULES.add(new DolphinModule());\n\t\tMODULES.add(new SpeedModule());\n\t\tMODULES.add(new LongJumpModule());\n\t\tMODULES.add(new ParkourModule());\n\t\tMODULES.add(new StepModule());\n\t\tMODULES.add(new SpiderModule());\n\t\tMODULES.add(new ElytraBoostModule());\n\t\tMODULES.add(new LandingEffectsModule());\n\t\tMODULES.add(new OrbitParticlesModule());\n\t\tMODULES.add(new HaloModule());\n\t\tMODULES.add(new TargetTrailsModule());\n\t\tMODULES.add(new PlayerTrailsModule());\n\t\tMODULES.add(new CriticalParticlesModule());\n\t\tMODULES.add(new AmbientParticlesModule());\n\t\tMODULES.add(new WorldSparklesModule());\n\t\tMODULES.add(new TargetHighlightModule());\n\t\tMODULES.add(new FootstepParticlesModule());\n\t\tMODULES.add(new TargetHudModule());\n\t\tMODULES.add(new TotemCounterModule());\n\t\tMODULES.add(new HitmarkerModule());\n\t\tMODULES.add(new JumpEffectsModule());\n"
           if "new SprintModule()" not in text:
               if marker not in text:
                   raise SystemExit("Could not find movement registration point in ModuleManager")
               text = text.replace(marker, additions + marker, 1)
-          for name in ("Aura", "Criticals", "Auto Armor", "Offhand", "Gap", "Auto Mace", "Trigger Bot", "Auto Totem"):
+          for name in ("Aura", "Criticals", "Auto Armor", "Offhand", "Gap", "Auto Mace", "Auto Pearl Catch", "Trigger Bot", "Auto Totem"):
               import re
               text = re.sub(r'^\s*\{"' + re.escape(name) + r'", [^\n]*\},?\n', '', text, flags=re.MULTILINE)
           manager.write_text(text)
@@ -53,7 +53,7 @@ jobs:
           from pathlib import Path
           root = Path("ion-client/src/main/java/com/suschunkfinder")
           required = [
-              "SprintModule.java", "AutoJumpModule.java", "NoFallModule.java", "AuraModule.java", "CriticalsModule.java", "AutoArmorModule.java", "OffhandModule.java", "GapModule.java", "AutoMaceModule.java",
+              "SprintModule.java", "AutoJumpModule.java", "NoFallModule.java", "AuraModule.java", "CriticalsModule.java", "AutoArmorModule.java", "OffhandModule.java", "GapModule.java", "AutoMaceModule.java", "AutoPearlCatchModule.java",
               "TriggerBotModule.java", "HighJumpModule.java", "AirJumpModule.java",
               "DolphinModule.java", "SpeedModule.java", "LongJumpModule.java",
               "ParkourModule.java", "AmbientParticlesModule.java",
