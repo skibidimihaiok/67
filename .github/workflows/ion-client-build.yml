@@ -36,7 +36,7 @@ jobs:
           manager = Path("ion-client/src/main/java/com/suschunkfinder/ModuleManager.java")
           text = manager.read_text()
           marker = "\t\t// Macro"
-          additions = "\t\tMODULES.add(new SprintModule());\n\t\tMODULES.add(new AutoJumpModule());\n\t\tMODULES.add(new NoFallModule());\n\t\tMODULES.add(new TriggerBotModule());\n\t\tMODULES.add(new AutoTotemModule());\n\t\tMODULES.add(new AuraModule());\n\t\tMODULES.add(new CriticalsModule());\n\t\tMODULES.add(new AutoArmorModule());\n\t\tMODULES.add(new OffhandModule());\n\t\tMODULES.add(new GapModule());\n\t\tMODULES.add(new AutoMaceModule());\n\t\tMODULES.add(new AutoPearlCatchModule());\n\t\tMODULES.add(new AutoPotionModule());\n\t\tMODULES.add(new AutoCrystalModule());\n\t\tMODULES.add(new SurroundModule());\n\t\tMODULES.add(new AutoWebTrapModule());\n\t\tMODULES.add(new AntiKnockbackModule());\n\t\tMODULES.add(new TrapModule());\n\t\tMODULES.add(new SurroundMinerModule());\n\t\tMODULES.add(new SelfTrapModule());\n\t\tMODULES.add(new ElytraTargetModule());\n\t\tMODULES.add(new ElytraMaceTargetModule());\n\t\tMODULES.add(new ElytraFreezeModule());\n\t\tMODULES.add(new AttributeSwapModule());\n\t\tMODULES.add(new AntiPhaseModule());\n\t\tMODULES.add(new PearlPredictModule());\n\t\tMODULES.add(new ProjectilePredictModule());\n\t\tMODULES.add(new TrajectoriesModule());\n\t\tMODULES.add(new AutoWitherModule());\n\t\tMODULES.add(new TotemModule());\n\t\tMODULES.add(new HighJumpModule());\n\t\tMODULES.add(new AirJumpModule());\n\t\tMODULES.add(new DolphinModule());\n\t\tMODULES.add(new SpeedModule());\n\t\tMODULES.add(new LongJumpModule());\n\t\tMODULES.add(new ParkourModule());\n\t\tMODULES.add(new StepModule());\n\t\tMODULES.add(new SpiderModule());\n\t\tMODULES.add(new ElytraBoostModule());\n\t\tMODULES.add(new LandingEffectsModule());\n\t\tMODULES.add(new OrbitParticlesModule());\n\t\tMODULES.add(new HaloModule());\n\t\tMODULES.add(new TargetTrailsModule());\n\t\tMODULES.add(new PlayerTrailsModule());\n\t\tMODULES.add(new CriticalParticlesModule());\n\t\tMODULES.add(new AmbientParticlesModule());\n\t\tMODULES.add(new WorldSparklesModule());\n\t\tMODULES.add(new TargetHighlightModule());\n\t\tMODULES.add(new FootstepParticlesModule());\n\t\tMODULES.add(new TargetHudModule());\n\t\tMODULES.add(new TotemCounterModule());\n\t\tMODULES.add(new HitmarkerModule());\n\t\tMODULES.add(new JumpEffectsModule());\n"
+          additions = "\t\tMODULES.add(new CoordinatesHudModule());\n\t\tMODULES.add(new FpsHudModule());\n\t\tMODULES.add(new ArmorHudModule());\n\t\tMODULES.add(new SprintModule());\n\t\tMODULES.add(new AutoJumpModule());\n\t\tMODULES.add(new NoFallModule());\n\t\tMODULES.add(new TriggerBotModule());\n\t\tMODULES.add(new AutoTotemModule());\n\t\tMODULES.add(new AuraModule());\n\t\tMODULES.add(new CriticalsModule());\n\t\tMODULES.add(new AutoArmorModule());\n\t\tMODULES.add(new OffhandModule());\n\t\tMODULES.add(new GapModule());\n\t\tMODULES.add(new AutoMaceModule());\n\t\tMODULES.add(new AutoPearlCatchModule());\n\t\tMODULES.add(new AutoPotionModule());\n\t\tMODULES.add(new AutoCrystalModule());\n\t\tMODULES.add(new SurroundModule());\n\t\tMODULES.add(new AutoWebTrapModule());\n\t\tMODULES.add(new AntiKnockbackModule());\n\t\tMODULES.add(new TrapModule());\n\t\tMODULES.add(new SurroundMinerModule());\n\t\tMODULES.add(new SelfTrapModule());\n\t\tMODULES.add(new ElytraTargetModule());\n\t\tMODULES.add(new ElytraMaceTargetModule());\n\t\tMODULES.add(new ElytraFreezeModule());\n\t\tMODULES.add(new AttributeSwapModule());\n\t\tMODULES.add(new AntiPhaseModule());\n\t\tMODULES.add(new PearlPredictModule());\n\t\tMODULES.add(new ProjectilePredictModule());\n\t\tMODULES.add(new TrajectoriesModule());\n\t\tMODULES.add(new AutoWitherModule());\n\t\tMODULES.add(new TotemModule());\n\t\tMODULES.add(new HighJumpModule());\n\t\tMODULES.add(new AirJumpModule());\n\t\tMODULES.add(new DolphinModule());\n\t\tMODULES.add(new SpeedModule());\n\t\tMODULES.add(new LongJumpModule());\n\t\tMODULES.add(new ParkourModule());\n\t\tMODULES.add(new StepModule());\n\t\tMODULES.add(new SpiderModule());\n\t\tMODULES.add(new ElytraBoostModule());\n\t\tMODULES.add(new LandingEffectsModule());\n\t\tMODULES.add(new OrbitParticlesModule());\n\t\tMODULES.add(new HaloModule());\n\t\tMODULES.add(new TargetTrailsModule());\n\t\tMODULES.add(new PlayerTrailsModule());\n\t\tMODULES.add(new CriticalParticlesModule());\n\t\tMODULES.add(new AmbientParticlesModule());\n\t\tMODULES.add(new WorldSparklesModule());\n\t\tMODULES.add(new TargetHighlightModule());\n\t\tMODULES.add(new FootstepParticlesModule());\n\t\tMODULES.add(new TargetHudModule());\n\t\tMODULES.add(new TotemCounterModule());\n\t\tMODULES.add(new HitmarkerModule());\n\t\tMODULES.add(new JumpEffectsModule());\n"
           if "new SprintModule()" not in text:
               if marker not in text:
                   raise SystemExit("Could not find movement registration point in ModuleManager")
@@ -53,7 +53,7 @@ jobs:
           from pathlib import Path
           root = Path("ion-client/src/main/java/com/suschunkfinder")
           required = [
-              "SprintModule.java", "AutoJumpModule.java", "NoFallModule.java", "AuraModule.java", "CriticalsModule.java", "AutoArmorModule.java", "OffhandModule.java", "GapModule.java", "AutoMaceModule.java", "AutoPearlCatchModule.java", "AutoPotionModule.java", "AutoCrystalModule.java", "SurroundModule.java", "AutoWebTrapModule.java", "AntiKnockbackModule.java", "TrapModule.java", "SurroundMinerModule.java", "SelfTrapModule.java", "ElytraTargetModule.java", "ElytraMaceTargetModule.java", "ElytraFreezeModule.java", "AttributeSwapModule.java", "AntiPhaseModule.java", "PearlPredictModule.java", "ProjectilePredictModule.java", "TrajectoriesModule.java", "AutoWitherModule.java", "TotemModule.java", "TotemModule.java",
+              "CoordinatesHudModule.java", "FpsHudModule.java", "ArmorHudModule.java", "SprintModule.java", "AutoJumpModule.java", "NoFallModule.java", "AuraModule.java", "CriticalsModule.java", "AutoArmorModule.java", "OffhandModule.java", "GapModule.java", "AutoMaceModule.java", "AutoPearlCatchModule.java", "AutoPotionModule.java", "AutoCrystalModule.java", "SurroundModule.java", "AutoWebTrapModule.java", "AntiKnockbackModule.java", "TrapModule.java", "SurroundMinerModule.java", "SelfTrapModule.java", "ElytraTargetModule.java", "ElytraMaceTargetModule.java", "ElytraFreezeModule.java", "AttributeSwapModule.java", "AntiPhaseModule.java", "PearlPredictModule.java", "ProjectilePredictModule.java", "TrajectoriesModule.java", "AutoWitherModule.java", "TotemModule.java", "TotemModule.java",
               "TriggerBotModule.java", "HighJumpModule.java", "AirJumpModule.java",
               "DolphinModule.java", "SpeedModule.java", "LongJumpModule.java",
               "ParkourModule.java", "AmbientParticlesModule.java",
@@ -269,10 +269,10 @@ jobs:
                   g.fill(x, y, right, bottom, 0xFF0B111B);
                   g.fill(x + 1, y + 1, right - 1, bottom - 1, 0xFF101A27);
                   g.fill(x + 1, y + 1, right - 1, y + 45, 0xFF111E2C);
-                  g.fill(x + 1, y + 44, right - 1, y + 46, 0xFF1ACBE5);
-                  g.fill(x + 1, y + 1, x + 3, bottom - 1, 0xFF22D5EE);
+                  g.fill(x + 1, y + 44, right - 1, y + 46, ThemeModule.color());
+                  g.fill(x + 1, y + 1, x + 3, bottom - 1, ThemeModule.color());
 
-                  g.drawString(font, "ION", x + 18, y + 13, 0xFF29DDF2, true);
+                  g.drawString(font, "ION", x + 18, y + 13, ThemeModule.color(), true);
                   g.drawString(font, "CLIENT", x + 45, y + 13, 0xFFF1F7FC, true);
                   g.drawString(font, "CONTROL CENTER  •  FABRIC", x + 18, y + 29, 0xFF7894AE, false);
                   g.drawString(font, "v1.0", right - 43, y + 18, 0xFF7894AE, false);
@@ -284,7 +284,7 @@ jobs:
                       int tx = contentX + i * (tabW + 5);
                       boolean active = i == selected;
                       g.fill(tx, tabY, tx + tabW, tabY + 27, active ? 0xFF16465A : 0xFF172433);
-                      if (active) g.fill(tx + 1, tabY + 24, tx + tabW - 1, tabY + 26, 0xFF2ADCF0);
+                      if (active) g.fill(tx + 1, tabY + 24, tx + tabW - 1, tabY + 26, ThemeModule.color());
                       String label = CATS[i].label;
                       g.drawCenteredString(font, label, tx + tabW / 2, tabY + 9, active ? 0xFFECFCFF : 0xFF91A8BE);
                   }
@@ -309,7 +309,7 @@ jobs:
                           g.fill(cx, ry, cx + 2, ry + ROW_H - 3, m.isEnabled() ? 0xFF22D5EE : 0xFF304457);
                           g.drawString(font, Hud.fit(m.name, colW - 62), cx + 11, ry + 10, m.isEnabled() ? 0xFFF1FCFF : 0xFFB1C2D1, false);
                           int sx = cx + colW - 37, sy = ry + 9;
-                          g.fill(sx, sy, sx + 25, sy + 13, m.isEnabled() ? 0xFF087D91 : 0xFF34485B);
+                          g.fill(sx, sy, sx + 25, sy + 13, m.isEnabled() ? ThemeModule.color() : 0xFF34485B);
                           int knob = m.isEnabled() ? sx + 14 : sx + 2;
                           g.fill(knob, sy + 2, knob + 9, sy + 11, m.isEnabled() ? 0xFFB8FAFF : 0xFF9BAEBE);
                       }
