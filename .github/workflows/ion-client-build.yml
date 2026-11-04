@@ -87,6 +87,48 @@ jobs:
           print("Applied render partial-tick interpolation to player- and target-following effects.")
           PY
 
+      - name: Repair ESP tracers and camera controls
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("ion-client/src/main/java/com/suschunkfinder")
+          
+          target = root / "TargetHighlightModule.java"
+          text = target.read_text()
+          if "import net.minecraft.world.phys.Vec3;" not in text:
+              text = text.replace("import net.minecraft.world.phys.AABB;", "import net.minecraft.world.phys.AABB;\nimport net.minecraft.world.phys.Vec3;")
+          target.write_text(text)
+
+          player = root / "PlayerEspModule.java"
+          text = player.read_text()
+          if 'BoolSetting tracers = add(BoolSetting.of("Tracers", true))' not in text:
+              text = text.replace(
+                  'private final BoolSetting fill = add(BoolSetting.of("Filled", true));',
+                  'private final BoolSetting fill = add(BoolSetting.of("Filled", true));\n\tprivate final BoolSetting tracers = add(BoolSetting.of("Tracers", true));'
+              )
+              old = 'AABB b = EspUtil.lerped(entity, pt);'
+              new = old + '\n\t\t\tif (tracers.get()) {\n\t\t\t\tvar eye = client.player.getEyePosition(pt);\n\t\t\t\tvar center = b.getCenter();\n\t\t\t\tbatch.line(eye, center, c[0], c[1], c[2], 0.95f, 0.045);\n\t\t\t}'
+              if old not in text: raise SystemExit("Player ESP interpolation anchor missing")
+              text = text.replace(old, new, 1)
+          player.write_text(text)
+
+          storage = root / "StorageEspModule.java"
+          text = storage.read_text()
+          if 'BoolSetting tracers = add(BoolSetting.of("Tracers", true))' not in text:
+              text = text.replace("package com.suschunkfinder;\n", "package com.suschunkfinder;\n\nimport net.minecraft.client.Minecraft;\nimport net.minecraft.world.phys.Vec3;\n", 1)
+              text = text.replace(
+                  'private final BoolSetting fill = add(BoolSetting.of("Filled", true));',
+                  'private final BoolSetting fill = add(BoolSetting.of("Filled", true));\n\tprivate final BoolSetting tracers = add(BoolSetting.of("Tracers", true));'
+              )
+              old = 'EspUtil.block(batch, be.getBlockPos(), c, fill.get());'
+              new = old + '\n\t\t\t\tif (tracers.get()) {\n\t\t\t\t\tMinecraft client = Minecraft.getInstance();\n\t\t\t\t\tif (client.player != null) {\n\t\t\t\t\t\tVec3 start = client.player.getEyePosition();\n\t\t\t\t\t\tVec3 end = Vec3.atCenterOf(be.getBlockPos());\n\t\t\t\t\t\tbatch.line(start, end, c[0], c[1], c[2], 0.9f, 0.04);\n\t\t\t\t\t}\n\t\t\t\t}'
+              if old not in text: raise SystemExit("Storage ESP block anchor missing")
+              text = text.replace(old, new, 1)
+          storage.write_text(text)
+          
+          print("Added independent tracer toggles and world-space lines to Player ESP and Storage ESP.")
+          PY
+
       - name: Validate registered ION modules
         run: |
           python3 - <<'PY'
