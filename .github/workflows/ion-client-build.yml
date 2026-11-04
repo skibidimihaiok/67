@@ -47,6 +47,46 @@ jobs:
           manager.write_text(text)
           PY
 
+      - name: Smooth movement-following render effects
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("ion-client/src/main/java/com/suschunkfinder")
+          replacements = {
+              "HaloModule.java": [
+                  ("Vec3 p=c.player.position();", "Vec3 p=c.player.getPosition(pt);"),
+              ],
+              "AmbientParticlesModule.java": [
+                  ("Vec3 p=c.player.position();", "Vec3 p=c.player.getPosition(pt);"),
+              ],
+              "OrbitParticlesModule.java": [
+                  ("Vec3 p=c.player.position();", "Vec3 p=c.player.getPosition(pt);"),
+              ],
+              "WorldSparklesModule.java": [
+                  ("Vec3 p=c.player.position();", "Vec3 p=c.player.getPosition(pt);"),
+              ],
+              "TargetHighlightModule.java": [
+                  ("AABB a=e.getBoundingBox().inflate(0.06);", "Vec3 renderPos=e.getPosition(pt); Vec3 offset=renderPos.subtract(e.position()); AABB a=e.getBoundingBox().move(offset).inflate(0.06);"),
+                  ("VisualEffects.circle(b,e.position(),", "VisualEffects.circle(b,renderPos,"),
+              ],
+              "PlayerTrailsModule.java": [
+                  ("VisualEffects.trail(b,new ArrayList<>(path),q[0],q[1],q[2]);", "Vec3 offset=Minecraft.getInstance().player.getPosition(pt).subtract(Minecraft.getInstance().player.position()); List<Vec3> smooth=new ArrayList<>(); for(Vec3 point:path)smooth.add(point.add(offset)); VisualEffects.trail(b,smooth,q[0],q[1],q[2]);"),
+              ],
+              "TargetTrailsModule.java": [
+                  ("VisualEffects.trail(b,new ArrayList<>(path),q[0],q[1],q[2]);", "Minecraft c=Minecraft.getInstance(); if(c.crosshairPickEntity instanceof LivingEntity e){Vec3 offset=e.getPosition(pt).subtract(e.position()); List<Vec3> smooth=new ArrayList<>(); for(Vec3 point:path)smooth.add(point.add(offset)); VisualEffects.trail(b,smooth,q[0],q[1],q[2]);}"),
+              ],
+          }
+          for filename, pairs in replacements.items():
+              path = root / filename
+              text = path.read_text()
+              for old, new in pairs:
+                  if old not in text:
+                      raise SystemExit(f"Could not locate expected interpolation point in {filename}: {old}")
+                  text = text.replace(old, new, 1)
+              path.write_text(text)
+          print("Applied render partial-tick interpolation to player- and target-following effects.")
+          PY
+
       - name: Validate registered ION modules
         run: |
           python3 - <<'PY'
