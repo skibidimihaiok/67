@@ -38,10 +38,17 @@ jobs:
           # Skip nested Fabric dependencies and select the actual client JAR.
           ANUBIS_JAR="$(find /tmp/anubis-release -type f -iname '*.jar' ! -path '*/META-INF/jars/*' | sort | head -1)"
           if [ -z "$ANUBIS_JAR" ]; then
-            echo "No top-level Anubis client JAR found inside the release ZIP"
-            echo "Available JARs:"
-            find /tmp/anubis-release -type f -iname '*.jar' | sort
-            exit 1
+            # This release is an exploded Fabric mod directory, not a ZIP
+            # containing one outer JAR. Repack its classes/resources while
+            # excluding nested dependency JARs, then decompile that archive.
+            if [ ! -f /tmp/anubis-release/fabric.mod.json ]; then
+              echo "No top-level client JAR or Fabric mod metadata found"
+              exit 1
+            fi
+            mkdir -p /tmp/anubis-client-root
+            rsync -a --exclude='META-INF/jars/' /tmp/anubis-release/ /tmp/anubis-client-root/
+            jar --create --file /tmp/anubis-client.jar -C /tmp/anubis-client-root .
+            ANUBIS_JAR=/tmp/anubis-client.jar
           fi
           echo "Inspecting Anubis client: $ANUBIS_JAR"
           curl -fL --retry 3 -o /tmp/cfr.jar "https://repo1.maven.org/maven2/org/benf/cfr/0.152/cfr-0.152.jar"
