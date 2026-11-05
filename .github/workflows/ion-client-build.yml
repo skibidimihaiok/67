@@ -56,6 +56,20 @@ jobs:
           java -jar /tmp/cfr.jar "$ANUBIS_JAR" --outputdir /tmp/anubis-decompiled --silent true
           cp /tmp/anubis-release/LICENSE_anubis /tmp/anubis-decompiled/LICENSE_anubis
           cp /tmp/anubis-release/fabric.mod.json /tmp/anubis-decompiled/fabric.mod.json
+          echo "=== ANUBIS FABRIC METADATA ==="
+          cat /tmp/anubis-release/fabric.mod.json
+          echo "=== ANUBIS MODULE EXTENSION API ==="
+          for file in \
+            /tmp/anubis-decompiled/net/anubis/client/addon/AddonManager.java \
+            /tmp/anubis-decompiled/net/anubis/client/module/ModuleProvider.java \
+            /tmp/anubis-decompiled/net/anubis/client/module/ModuleRegistry.java \
+            /tmp/anubis-decompiled/net/anubis/client/module/ClientModule.java \
+            /tmp/anubis-decompiled/net/anubis/client/AnubisClientMod.java; do
+            if [ -f "$file" ]; then
+              echo "===== $file ====="
+              sed -n '1,300p' "$file"
+            fi
+          done
           echo "=== DECOMPILED SOURCE FILES ==="
           find /tmp/anubis-decompiled -type f -name '*.java' | sort | head -300
           echo "=== REQUESTED MODULE MATCHES ==="
