@@ -23,7 +23,7 @@ public final class FreeLookModule extends ClientModule {
         CameraControl.pitch = client.player.getXRot();
         CameraControl.sensitivity = (float)(sensitivity.get() / 8.0);
         CameraControl.freeLookActive = true;
-        if (togglePerspective.get()) {
+        if (togglePerspective.get() && mode.index() == 1) {
             previousPerspective = client.options.getCameraType();
             client.options.setCameraType(previousPerspective.cycle());
         }
