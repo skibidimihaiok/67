@@ -12,6 +12,12 @@ public final class IonAnubisAddon extends AnubisAddon {
     }
 
     @Override
+    public void onConfigLoaded() {
+        ModuleRegistry.all();
+        IonModuleProvider.syncConfiguredSettings();
+    }
+
+    @Override
     public void onInitialize() {
         IonAddonRuntime.initializeForAnubisAddon();
         ModuleRegistry.registerProvider(new IonModuleProvider());
