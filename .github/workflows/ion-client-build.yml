@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'ION-CLIENT-visuals-experimental.zip'
+      - 'ion-client-overrides/src/main/java/**'
       - '.github/workflows/ion-client-build.yml'
   workflow_dispatch:
 
