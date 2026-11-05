@@ -126,6 +126,37 @@ jobs:
             echo "===== $file ====="
             sed -n '1,260p' "$file"
           done < <(grep -RilE 'Auto.?Relog|Free.?cam|Free.?look|Spotify|Region.?Map|Storage.?ESP|Player.?ESP|Anti.?Vanish|Player.?Bypass|Kill.?Aura|Tracers' /tmp/anubis-decompiled --include='*.java' | sort | head -30)
+      - name: Inspect the actual 1.21.11 client source and binary
+        run: |
+          set -euo pipefail
+          echo "=== SOURCE ARCHIVE CONTENTS ==="
+          unzip -l "suschunkfinder-1.21.11-source (4).zip" | head -250
+          mkdir -p /tmp/suschunkfinder-source
+          unzip -q "suschunkfinder-1.21.11-source (4).zip" -d /tmp/suschunkfinder-source
+          echo "=== ORIGINAL SOURCE PROJECT FILES ==="
+          find /tmp/suschunkfinder-source -maxdepth 7 -type f | sort | head -350
+          echo "=== SOURCE FABRIC METADATA ==="
+          find /tmp/suschunkfinder-source -name fabric.mod.json -print -exec cat {} ;
+          echo "=== SOURCE MODULE / GUI / KEYBIND FILES ==="
+          find /tmp/suschunkfinder-source -type f | grep -Ei '(module|gui|click|screen|keybind|key.?binding|kill.?aura|mace|pvp)' | sort | head -300 || true
+          echo "=== SOURCE PvP MODULE REGISTRATIONS ==="
+          grep -RinE 'Kill.?Aura|Auto.?Mace|Mace|MODULES|register.*module|add.*module' /tmp/suschunkfinder-source --include='*.java' | head -260 || true
+          echo "=== DECOMPILE EXACT 1.21.11 RELEASE JAR ==="
+          mkdir -p /tmp/uploaded-1.21.11-decompiled
+          java -jar /tmp/cfr.jar /tmp/uploaded-1.21.11.jar --outputdir /tmp/uploaded-1.21.11-decompiled --silent true
+          echo "=== DECOMPILED CLASS FILES ==="
+          find /tmp/uploaded-1.21.11-decompiled -type f | sort | head -350
+          echo "=== DECOMPILED PvP / UI / KEYBIND REFERENCES ==="
+          grep -RinE 'Kill.?Aura|Mace|PvP|key.?bind|KeyMapping|Screen|MODULES|module' /tmp/uploaded-1.21.11-decompiled --include='*.java' | head -300 || true
+      - name: Upload original 1.21.11 inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-1.21.11-client-inspection
+          path: |
+            /tmp/suschunkfinder-source
+            /tmp/uploaded-1.21.11-decompiled
+          if-no-files-found: error
+
       - name: Upload Anubis decompiled source for review
         uses: actions/upload-artifact@v4
         with:
