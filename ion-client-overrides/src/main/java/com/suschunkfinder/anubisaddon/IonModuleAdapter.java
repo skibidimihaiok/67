@@ -1,5 +1,8 @@
 package com.suschunkfinder.anubisaddon;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.suschunkfinder.BoolSetting;
 import com.suschunkfinder.ClientModule;
 import com.suschunkfinder.ColorSetting;
@@ -12,6 +15,7 @@ import net.anubis.client.module.ModuleCategory;
 /** Bridges an ION module and its options into Anubis's native toggle and settings UI. */
 public final class IonModuleAdapter extends net.anubis.client.module.ClientModule {
     private final ClientModule delegate;
+    private final List<Runnable> configSync = new ArrayList<>();
 
     public IonModuleAdapter(ClientModule delegate) {
         super("ion-" + slug(delegate.name), delegate.name, delegate.description, category(delegate.category));
@@ -21,6 +25,7 @@ public final class IonModuleAdapter extends net.anubis.client.module.ClientModul
                 net.anubis.client.module.setting.BooleanSetting target =
                     new net.anubis.client.module.setting.BooleanSetting(source.name, source.get());
                 target.onChange(() -> source.set(target.get()));
+                configSync.add(() -> source.set(target.get()));
                 addSetting(target);
             } else if (setting instanceof NumberSetting source) {
                 net.anubis.client.module.setting.NumberSetting target =
@@ -28,20 +33,27 @@ public final class IonModuleAdapter extends net.anubis.client.module.ClientModul
                         source.name, (float) source.get(), (float) source.min(), (float) source.max()
                     ).step((float) source.step());
                 target.onChange(() -> source.set(target.get()));
+                configSync.add(() -> source.set(target.get()));
                 addSetting(target);
             } else if (setting instanceof ModeSetting source) {
                 net.anubis.client.module.setting.ModeSetting target =
                     new net.anubis.client.module.setting.ModeSetting(source.name, source.mode(), source.modes());
                 target.onChange(() -> source.setMode(target.get()));
+                configSync.add(() -> source.setMode(target.get()));
                 addSetting(target);
             } else if (setting instanceof ColorSetting source) {
                 net.anubis.client.module.setting.ColorSetting target =
                     new net.anubis.client.module.setting.ColorSetting(source.name, source.argb());
                 target.onChange(() -> source.set(target.argb()));
+                configSync.add(() -> source.set(target.argb()));
                 addSetting(target);
             }
         }
         if (delegate.isEnabled()) setEnabled(true);
+    }
+
+    public void syncSettingsToDelegate() {
+        for (Runnable sync : configSync) sync.run();
     }
 
     @Override
