@@ -23,14 +23,15 @@ public final class KillAuraModule extends ClientModule {
     @Override public void tick(Minecraft client) {
         if (client.player == null || client.level == null || client.gameMode == null || client.screen != null) return;
         if (waitTicks > 0) { waitTicks--; return; }
-        LivingEntity target = client.level.entitiesForRendering().stream()
-            .filter(e -> e instanceof LivingEntity)
-            .map(e -> (LivingEntity)e)
-            .filter(this::allowed)
-            .filter(e -> e != client.player && e.isAlive() && e.isAttackable())
-            .filter(e -> client.player.distanceTo(e) <= range.get())
-            .filter(e -> client.player.hasLineOfSight(e))
-            .min(comparator(client)).orElse(null);
+        java.util.List<LivingEntity> candidates = new java.util.ArrayList<>();
+        for (net.minecraft.world.entity.Entity entity : client.level.entitiesForRendering()) {
+            if (entity instanceof LivingEntity living && allowed(living) && living != client.player
+                && living.isAlive() && living.isAttackable() && client.player.distanceTo(living) <= range.get()
+                && client.player.hasLineOfSight(living)) {
+                candidates.add(living);
+            }
+        }
+        LivingEntity target = candidates.stream().min(comparator(client)).orElse(null);
         if (target == null) return;
         if (crits.index() == 1 && (client.player.onGround() || client.player.fallDistance <= 0.0f)) return;
         if (crits.index() == 2 && client.player.onGround()) { client.player.jumpFromGround(); return; }
