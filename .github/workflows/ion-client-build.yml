@@ -23,6 +23,38 @@ jobs:
           distribution: temurin
           java-version: '25'
 
+      - name: Download and inspect Anubis release
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --retry-delay 2 -o /tmp/anubis-release.zip "https://github.com/skibidimihaiok/67/releases/download/Anubis/Anubis.Beta.0.9.9.1.zip"
+          mkdir -p /tmp/anubis-release /tmp/anubis-decompiled
+          unzip -q /tmp/anubis-release.zip -d /tmp/anubis-release
+          echo "=== RELEASE FILES ==="
+          find /tmp/anubis-release -maxdepth 4 -type f | sort | head -200
+          ANUBIS_JAR="$(find /tmp/anubis-release -type f -iname '*.jar' | head -1)"
+          if [ -z "$ANUBIS_JAR" ]; then
+            echo "No JAR found inside the Anubis release ZIP"
+            exit 1
+          fi
+          echo "Inspecting: $ANUBIS_JAR"
+          curl -fL --retry 3 -o /tmp/cfr.jar "https://repo1.maven.org/maven2/org/benf/cfr/0.152/cfr-0.152.jar"
+          java -jar /tmp/cfr.jar "$ANUBIS_JAR" --outputdir /tmp/anubis-decompiled --silent true
+          echo "=== DECOMPILED SOURCE FILES ==="
+          find /tmp/anubis-decompiled -type f -name '*.java' | sort | head -300
+          echo "=== REQUESTED MODULE MATCHES ==="
+          grep -RilE 'Auto.?Relog|Free.?cam|Free.?look|Spotify|Region.?Map|Storage.?ESP|Player.?ESP|Anti.?Vanish|Player.?Bypass|Kill.?Aura|Tracers' /tmp/anubis-decompiled --include='*.java' | sort | head -100 || true
+          echo "=== REQUESTED MODULE SOURCE EXCERPTS ==="
+          while IFS= read -r file; do
+            echo "===== $file ====="
+            sed -n '1,260p' "$file"
+          done < <(grep -RilE 'Auto.?Relog|Free.?cam|Free.?look|Spotify|Region.?Map|Storage.?ESP|Player.?ESP|Anti.?Vanish|Player.?Bypass|Kill.?Aura|Tracers' /tmp/anubis-decompiled --include='*.java' | sort | head -30)
+      - name: Upload Anubis decompiled source for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: anubis-decompiled-source
+          path: /tmp/anubis-decompiled
+          if-no-files-found: error
+
       - name: Extract ION CLIENT source
         run: |
           mkdir ion-client
