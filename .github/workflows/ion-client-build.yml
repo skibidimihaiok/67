@@ -136,7 +136,22 @@ jobs:
           echo "=== ORIGINAL SOURCE PROJECT FILES ==="
           find /tmp/suschunkfinder-source -maxdepth 7 -type f | sort | head -350
           echo "=== SOURCE FABRIC METADATA ==="
-          find /tmp/suschunkfinder-source -name fabric.mod.json -print -exec cat {} ;
+          find /tmp/suschunkfinder-source -name fabric.mod.json -print -exec cat {} +
+          echo "=== ORIGINAL MODULE REGISTRY ==="
+          sed -n '1,320p' /tmp/suschunkfinder-source/suschunkfinder/src/main/java/com/suschunkfinder/ModuleManager.java
+          echo "=== ORIGINAL GUI AND KEYBIND IMPLEMENTATION ==="
+          for file in ClickGuiModule.java ClickGuiScreen.java ModuleSettingsScreen.java Keys.java ConfigManager.java SusChunkFinderClient.java ClientModule.java; do
+            echo "===== $file ====="
+            sed -n '1,280p' "/tmp/suschunkfinder-source/suschunkfinder/src/main/java/com/suschunkfinder/$file" 2>/dev/null || true
+          done
+          echo "=== ORIGINAL PROJECT BUILD AND METADATA ==="
+          cat /tmp/suschunkfinder-source/suschunkfinder/build.gradle
+          cat /tmp/suschunkfinder-source/suschunkfinder/src/main/resources/fabric.mod.json
+          echo "=== OTHER REPOSITORY CLIENT ARCHIVES ==="
+          unzip -l "skbiditoilet-fixed (1).zip" | head -200 || true
+          echo "=== SKBIDITOILET JAR METADATA AND MODULES ==="
+          unzip -p skbiditoilet-1.0.0.jar fabric.mod.json || true
+          unzip -Z1 skbiditoilet-1.0.0.jar | grep -Ei '(gui|screen|module|key|kill|mace|anubis)' | head -200 || true
           echo "=== SOURCE MODULE / GUI / KEYBIND FILES ==="
           find /tmp/suschunkfinder-source -type f | grep -Ei '(module|gui|click|screen|keybind|key.?binding|kill.?aura|mace|pvp)' | sort | head -300 || true
           echo "=== SOURCE PvP MODULE REGISTRATIONS ==="
