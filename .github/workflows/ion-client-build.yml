@@ -62,13 +62,37 @@ jobs:
           echo
           echo "=== EXACT JAR ENTRY NAMES RELATED TO GUI / BINDS / MODULES ==="
           unzip -Z1 /tmp/uploaded-1.21.11.jar | grep -Ei '(gui|click|screen|keybind|key.?binding|module|anubis|reborn)' | head -250 || true
-          mkdir -p /tmp/uploaded-1.21.11-decompiled
-          java -jar /tmp/cfr.jar /tmp/uploaded-1.21.11.jar --outputdir /tmp/uploaded-1.21.11-decompiled --silent true
-          echo "=== EXACT JAR DECOMPILED GUI / BIND / MODULE SOURCES ==="
-          while IFS= read -r file; do
-            echo "===== $file ====="
-            sed -n '1,260p' "$file"
-          done < <(grep -RilE 'ClickGui|ClickGUI|Keybind|KeyBinding|KeyManager|ModuleManager|class .*Screen|class .*Module' /tmp/uploaded-1.21.11-decompiled --include='*.java' | sort | head -35)
+          echo "=== EXACT JAR CLASS / GUI / KEYBIND IMPLEMENTATION SCAN ==="
+          python3 - <<'PY'
+          import json, re, zipfile
+          path = "/tmp/uploaded-1.21.11.jar"
+          pattern = re.compile(rb"gui|screen|key.?bind|key.?binding|bind|module|anubis|reborn|click|menu|hud", re.I)
+          with zipfile.ZipFile(path) as jar:
+              meta = json.loads(jar.read("fabric.mod.json"))
+              print("Fabric metadata:", json.dumps(meta, indent=2))
+              names = [n for n in jar.namelist() if n.endswith(".class")]
+              nested = [n for n in jar.namelist() if n.lower().endswith(".jar")]
+              print("Class count:", len(names))
+              print("Nested JARs:", nested)
+              print("Class path matches:")
+              for name in names:
+                  if pattern.search(name.encode()):
+                      print("  ", name)
+              print("Class constant/string matches:")
+              shown = 0
+              for name in names:
+                  data = jar.read(name)
+                  for value in re.findall(rb"[\\x20-\\x7e]{4,}", data):
+                      if pattern.search(value):
+                          print("  ", name, "=>", value[:180].decode("ascii", "replace"))
+                          shown += 1
+                          if shown >= 160:
+                              break
+                  if shown >= 160:
+                      break
+              print("First 100 class paths:")
+              print("\\n".join(names[:100]))
+          PY
           java -jar /tmp/cfr.jar "$ANUBIS_JAR" --outputdir /tmp/anubis-decompiled --silent true
           cp /tmp/anubis-release/LICENSE_anubis /tmp/anubis-decompiled/LICENSE_anubis
           cp /tmp/anubis-release/fabric.mod.json /tmp/anubis-decompiled/fabric.mod.json
