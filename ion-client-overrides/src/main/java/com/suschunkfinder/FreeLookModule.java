@@ -46,7 +46,7 @@ public final class FreeLookModule extends ClientModule {
         if (!CameraControl.freeLookActive) start(client);
         CameraControl.sensitivity = (float)(sensitivity.get() / 8.0);
         if (client.screen != null || arrowSpeed.get() <= 0) return;
-        long window = client.getWindow().getWindow();
+        long window = client.getWindow().handle();
         float direction = opposite.get() ? -1.0f : 1.0f;
         if (GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT) == GLFW.GLFW_PRESS) CameraControl.yaw -= (float)arrowSpeed.get() * direction;
         if (GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT) == GLFW.GLFW_PRESS) CameraControl.yaw += (float)arrowSpeed.get() * direction;
