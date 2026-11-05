@@ -485,3 +485,4 @@ jobs:
 # Visual effect geometry sources are copied from ion-client-overrides during the build.
 # Always compile the branch's current override sources, including the Anubis-compatible modules.
 # Region-map data, storage style controls, and Spotify lyric timing are compile-checked here.
+# Refresh CI for the Minecraft 1.21.11 API compatibility corrections.
