@@ -54,6 +54,21 @@ jobs:
           fi
           echo "Inspecting Anubis client: $ANUBIS_JAR"
           curl -fL --retry 3 -o /tmp/cfr.jar "https://repo1.maven.org/maven2/org/benf/cfr/0.152/cfr-0.152.jar"
+          # Inspect the exact JAR uploaded by the repository owner, not the Beta ZIP.
+          curl -fL --retry 3 --retry-delay 2 -o /tmp/uploaded-1.21.11.jar "https://github.com/skibidimihaiok/67/releases/download/Anubis/1.21.11.jar"
+          echo "90af3f4a2c85e2abf84f47e7d7390ee5203c6ded80b42c3c63083c3133c234e0  /tmp/uploaded-1.21.11.jar" | sha256sum -c -
+          echo "=== EXACT UPLOADED 1.21.11 JAR METADATA ==="
+          unzip -p /tmp/uploaded-1.21.11.jar fabric.mod.json
+          echo
+          echo "=== EXACT JAR ENTRY NAMES RELATED TO GUI / BINDS / MODULES ==="
+          unzip -Z1 /tmp/uploaded-1.21.11.jar | grep -Ei '(gui|click|screen|keybind|key.?binding|module|anubis|reborn)' | head -250 || true
+          mkdir -p /tmp/uploaded-1.21.11-decompiled
+          java -jar /tmp/cfr.jar /tmp/uploaded-1.21.11.jar --outputdir /tmp/uploaded-1.21.11-decompiled --silent true
+          echo "=== EXACT JAR DECOMPILED GUI / BIND / MODULE SOURCES ==="
+          while IFS= read -r file; do
+            echo "===== $file ====="
+            sed -n '1,260p' "$file"
+          done < <(grep -RilE 'ClickGui|ClickGUI|Keybind|KeyBinding|KeyManager|ModuleManager|class .*Screen|class .*Module' /tmp/uploaded-1.21.11-decompiled --include='*.java' | sort | head -35)
           java -jar /tmp/cfr.jar "$ANUBIS_JAR" --outputdir /tmp/anubis-decompiled --silent true
           cp /tmp/anubis-release/LICENSE_anubis /tmp/anubis-decompiled/LICENSE_anubis
           cp /tmp/anubis-release/fabric.mod.json /tmp/anubis-decompiled/fabric.mod.json
