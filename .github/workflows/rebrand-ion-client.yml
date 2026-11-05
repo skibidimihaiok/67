@@ -35,7 +35,7 @@ jobs:
                   if item.filename == "fabric.mod.json":
                       metadata = json.loads(data)
                       metadata["name"] = "ION Client"
-                      data = (json.dumps(metadata, indent=2, ensure_ascii=False) + "\\n").encode("utf-8")
+                      data = (json.dumps(metadata, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
                   zout.writestr(item, data)
           with zipfile.ZipFile(target, "r") as check:
               metadata = json.loads(check.read("fabric.mod.json"))
