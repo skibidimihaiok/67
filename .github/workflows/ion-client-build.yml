@@ -31,12 +31,19 @@ jobs:
           unzip -q /tmp/anubis-release.zip -d /tmp/anubis-release
           echo "=== RELEASE FILES ==="
           find /tmp/anubis-release -maxdepth 4 -type f | sort | head -200
-          ANUBIS_JAR="$(find /tmp/anubis-release -type f -iname '*.jar' | head -1)"
+          echo "=== ANUBIS LICENSE ==="
+          if [ -f /tmp/anubis-release/LICENSE_anubis ]; then
+            sed -n '1,220p' /tmp/anubis-release/LICENSE_anubis
+          fi
+          # Skip nested Fabric dependencies and select the actual client JAR.
+          ANUBIS_JAR="$(find /tmp/anubis-release -type f -iname '*.jar' ! -path '*/META-INF/jars/*' | sort | head -1)"
           if [ -z "$ANUBIS_JAR" ]; then
-            echo "No JAR found inside the Anubis release ZIP"
+            echo "No top-level Anubis client JAR found inside the release ZIP"
+            echo "Available JARs:"
+            find /tmp/anubis-release -type f -iname '*.jar' | sort
             exit 1
           fi
-          echo "Inspecting: $ANUBIS_JAR"
+          echo "Inspecting Anubis client: $ANUBIS_JAR"
           curl -fL --retry 3 -o /tmp/cfr.jar "https://repo1.maven.org/maven2/org/benf/cfr/0.152/cfr-0.152.jar"
           java -jar /tmp/cfr.jar "$ANUBIS_JAR" --outputdir /tmp/anubis-decompiled --silent true
           echo "=== DECOMPILED SOURCE FILES ==="
