@@ -10,10 +10,19 @@ import net.minecraft.world.level.block.entity.DispenserBlockEntity;
 import net.minecraft.world.level.block.entity.EnderChestBlockEntity;
 import net.minecraft.world.level.block.entity.HopperBlockEntity;
 import net.minecraft.world.level.block.entity.ShulkerBoxBlockEntity;
+import net.minecraft.world.level.block.entity.SpawnerBlockEntity;
 import net.minecraft.world.level.block.entity.TrappedChestBlockEntity;
 
 /** Storage boxes and optional category-specific tracer rays. */
 public final class StorageEspModule extends ClientModule implements EspSource {
+    private final ModeSetting shape = add(ModeSetting.of("Shape", 0, "Outline", "Boxes"));
+    private final NumberSetting boxSize = add(NumberSetting.of("Box Size", 1.0, 0.1, 2.0, 0.1));
+    private final NumberSetting fillAlpha = add(NumberSetting.of("Fill Alpha", 0.25, 0.0, 1.0, 0.05));
+    private final NumberSetting lineWidth = add(NumberSetting.of("Line Width", 1.5, 0.5, 5.0, 0.5));
+    private final BoolSetting glow = add(BoolSetting.of("Glow", true));
+    private final BoolSetting distanceFade = add(BoolSetting.of("Distance Fade", true));
+    private final BoolSetting reveal = add(BoolSetting.of("Reveal Animation", true));
+    private final NumberSetting maxDistance = add(NumberSetting.of("Max Distance", 256, 16, 2048, 16));
     private final NumberSetting range = add(NumberSetting.of("Range (chunks)", 8, 1, 32, 1));
     private final BoolSetting tracers = add(BoolSetting.of("Tracers", false));
     private final BoolSetting chests = add(BoolSetting.of("Chests", true));
@@ -28,6 +37,10 @@ public final class StorageEspModule extends ClientModule implements EspSource {
     private final ColorSetting shulkerColor = add(new ColorSetting("Shulker Color", -7995234));
     private final BoolSetting shulkerTracers = add(BoolSetting.of("Shulker Tracers", false));
     private final ColorSetting shulkerTracerColor = add(new ColorSetting("Shulker Tracer Color", -7995234));
+    private final BoolSetting spawners = add(BoolSetting.of("Spawners", true));
+    private final ColorSetting spawnerColor = add(new ColorSetting("Spawner Color", -7700826));
+    private final BoolSetting spawnerTracers = add(BoolSetting.of("Spawner Tracers", false));
+    private final ColorSetting spawnerTracerColor = add(new ColorSetting("Spawner Tracer Color", -7700826));
     private final BoolSetting furnaces = add(BoolSetting.of("Furnaces", false));
     private final ColorSetting furnaceColor = add(new ColorSetting("Furnace Color", -10197916));
     private final BoolSetting furnaceTracers = add(BoolSetting.of("Furnace Tracers", false));
@@ -46,6 +59,9 @@ public final class StorageEspModule extends ClientModule implements EspSource {
         super("Storage ESP", "Highlights storage containers with independent colors and tracer controls.", Category.RENDER);
     }
 
+    private long enabledAt;
+    @Override protected void onEnable() { enabledAt = System.currentTimeMillis(); }
+
     @Override public void collect(EspBatch batch, float pt) {
         Minecraft client = Minecraft.getInstance();
         if (client.player == null || client.level == null) return;
@@ -61,6 +77,8 @@ public final class StorageEspModule extends ClientModule implements EspSource {
                 enabled = shulkers.get(); color = shulkerColor; tracerEnabled = shulkerTracers.get(); tracerColor = shulkerTracerColor;
             } else if (be instanceof BarrelBlockEntity) {
                 enabled = barrels.get(); color = barrelColor; tracerEnabled = barrelTracers.get(); tracerColor = barrelTracerColor;
+            } else if (be instanceof SpawnerBlockEntity) {
+                enabled = spawners.get(); color = spawnerColor; tracerEnabled = spawnerTracers.get(); tracerColor = spawnerTracerColor;
             } else if (be instanceof AbstractFurnaceBlockEntity) {
                 enabled = furnaces.get(); color = furnaceColor; tracerEnabled = furnaceTracers.get(); tracerColor = furnaceTracerColor;
             } else if (be instanceof HopperBlockEntity || be instanceof DispenserBlockEntity) {
@@ -68,10 +86,24 @@ public final class StorageEspModule extends ClientModule implements EspSource {
             }
             if (!enabled || color == null) return;
             BlockEntity blockEntity = be;
-            EspUtil.block(batch, blockEntity.getBlockPos(), new float[]{color.red(),color.green(),color.blue()}, fill.get());
+            Vec3 center = Vec3.atCenterOf(blockEntity.getBlockPos());
+            double distance = Math.sqrt(eye.distanceToSqr(center));
+            if (distance > maxDistance.get()) return;
+            double fade = distanceFade.get() ? Math.max(0.15, 1.0 - distance / Math.max(1.0, maxDistance.get())) : 1.0;
+            float alpha = (float)(fade * (reveal.get() ? Math.min(1.0, (System.currentTimeMillis() - enabledAt) / 350.0) : 1.0));
+            double half = boxSize.get() * 0.5;
+            double x = center.x, y = center.y, z = center.z;
+            double x0=x-half, x1=x+half, y0=y-half, y1=y+half, z0=z-half, z1=z+half;
+            float cr=color.red(), cg=color.green(), cb=color.blue();
+            if (glow.get()) batch.outline(x0-0.025,y0-0.025,z0-0.025,x1+0.025,y1+0.025,z1+0.025,cr,cg,cb,0.22f*alpha,lineWidth.get()*0.025);
+            if (shape.index() == 0) {
+                batch.outline(x0,y0,z0,x1,y1,z1,cr,cg,cb,alpha,lineWidth.get()*0.025);
+                if (fill.get() && fillAlpha.get() > 0) batch.box(x0,y0,z0,x1,y1,z1,cr,cg,cb,(float)fillAlpha.get()*alpha);
+            } else {
+                batch.box(x0,y0,z0,x1,y1,z1,cr,cg,cb,Math.max((float)fillAlpha.get(),0.15f)*alpha);
+            }
             if (tracers.get() && tracerEnabled && tracerColor != null) {
-                Vec3 end = Vec3.atCenterOf(blockEntity.getBlockPos());
-                batch.line(eye,end,tracerColor.red(),tracerColor.green(),tracerColor.blue(),0.95f,0.04);
+                batch.line(eye,center,tracerColor.red(),tracerColor.green(),tracerColor.blue(),alpha,0.04);
             }
         });
     }
