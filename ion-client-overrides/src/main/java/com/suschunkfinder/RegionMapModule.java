@@ -72,12 +72,12 @@ public final class RegionMapModule extends HudModule {
                 g.fill(sx + cell - 1, sy, sx + cell, sy + cell, color);
                 if (showRegionIds.get() && cell >= 15) {
                     float scale = (float)textScale.get();
-                    g.pose().pushPose();
+                    g.pose().pushMatrix();
                     int cx = sx + cell / 2, cy = sy + cell / 2;
-                    g.pose().translate(cx, cy, 0);
-                    g.pose().scale(scale, scale, 1.0f);
+                    g.pose().translate((float)cx, (float)cy);
+                    g.pose().scale(scale, scale);
                     g.drawCenteredString(clientFont(), Integer.toString(info.regionId()), 0, -4, 0xFFFFFFFF);
-                    g.pose().popPose();
+                    g.pose().popMatrix();
                 }
             }
         }
