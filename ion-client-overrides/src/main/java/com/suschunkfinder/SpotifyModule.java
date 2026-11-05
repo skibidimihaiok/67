@@ -38,7 +38,7 @@ public final class SpotifyModule extends HudModule {
     @Override public void tick(Minecraft client) {
         SpotifyClient.start();
         if (!mediaKeys.get() || client.screen != null || client.getWindow() == null) return;
-        long window = client.getWindow().getWindow();
+        long window = client.getWindow().handle();
         playDown = key(window, playPauseKey, playDown, "play");
         nextDown = key(window, nextKey, nextDown, "next");
         previousDown = key(window, previousKey, previousDown, "prev");
