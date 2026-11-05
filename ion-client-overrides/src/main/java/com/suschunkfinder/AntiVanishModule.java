@@ -28,7 +28,7 @@ public final class AntiVanishModule extends ClientModule {
                 || (missingTab.get() && client.getConnection().getPlayerInfo(other.getUUID()) == null);
             if (hidden && reported.add(other.getUUID()) && notify.get()) {
                 client.player.displayClientMessage(Component.literal("[ION] Possible vanished/invisible player: "
-                    + other.getGameProfile().getName()), true);
+                    + other.getGameProfile().name()), true);
             }
         }
     }
