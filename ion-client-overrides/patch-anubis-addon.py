@@ -108,10 +108,11 @@ if "public static void initForAnubisAddon()" not in text:
     }
 
 """
-    marker = "    /** Finds a module by its class. */"
-    if marker not in text:
-        raise SystemExit("ModuleManager helper insertion anchor missing")
-    text = text.replace(marker, helper + marker, 1)
+    marker = "public static <T extends ClientModule> T find("
+    index = text.find(marker)
+    if index < 0:
+        raise SystemExit("ModuleManager find() insertion anchor missing")
+    text = text[:index] + helper + text[index:]
 manager.write_text(text)
 
 # Make this mod an Anubis add-on at runtime, while compiling against (but not bundling) Anubis.
