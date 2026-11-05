@@ -43,7 +43,7 @@ public final class KillAuraModule extends ClientModule {
 
     private boolean allowed(LivingEntity entity) {
         if (entity instanceof Player p) {
-            return players.get() && !NameList.FRIENDS.contains(p.getGameProfile().getName());
+            return players.get() && !NameList.FRIENDS.contains(p.getGameProfile().name());
         }
         return hostiles.get() && entity instanceof Enemy;
     }
