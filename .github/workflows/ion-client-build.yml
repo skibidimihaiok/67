@@ -5,6 +5,7 @@ on:
     paths:
       - 'ION-CLIENT-visuals-experimental.zip'
       - 'ion-client-overrides/src/main/java/**'
+      - 'ion-client-overrides/patch-anubis-addon.py'
       - '.github/workflows/ion-client-build.yml'
   workflow_dispatch:
 
