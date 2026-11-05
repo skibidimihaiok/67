@@ -78,7 +78,7 @@ public final class TracersModule extends ClientModule implements EspSource {
         lastTargets.clear();
         lastTargets.addAll(targets(client));
         // Use the active render camera, not the player eye, so the ray begins at the crosshair in camera-controlled views.
-        Vec3 eye = client.gameRenderer.getMainCamera().getPosition();
+        Vec3 eye = client.gameRenderer.getMainCamera().position();
         for (Entity e : lastTargets) {
             ColorSetting setting = group(e);
             int argb = colorFor(client, e, setting);
