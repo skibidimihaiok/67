@@ -125,6 +125,7 @@ jobs:
               text = re.sub(r'^\s*\{"' + re.escape(name) + r'", [^\n]*\},?\n', '', text, flags=re.MULTILINE)
           manager.write_text(text)
           PY
+          python3 ion-client-overrides/patch-anubis-addon.py
 
       - name: Smooth movement-following render effects
         run: |
@@ -500,7 +501,7 @@ jobs:
       - name: Upload built JAR
         uses: actions/upload-artifact@v4
         with:
-          name: ION-CLIENT-jar
+          name: ION-ANUBIS-ADDON
           path: ion-client/build/libs/*.jar
           if-no-files-found: error
 
