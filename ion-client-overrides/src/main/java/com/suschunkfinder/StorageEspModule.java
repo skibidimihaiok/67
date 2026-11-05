@@ -66,7 +66,7 @@ public final class StorageEspModule extends ClientModule implements EspSource {
         Minecraft client = Minecraft.getInstance();
         if (client.player == null || client.level == null) return;
         // Anchor tracer rays to the active render camera so their origin is the screen crosshair, including third-person/freecam views.
-        Vec3 eye = client.gameRenderer.getMainCamera().getPosition();
+        Vec3 eye = client.gameRenderer.getMainCamera().position();
         EspUtil.forEachBlockEntity(range.getInt(), be -> {
             ColorSetting color = null, tracerColor = null;
             boolean enabled = false, tracerEnabled = false;
