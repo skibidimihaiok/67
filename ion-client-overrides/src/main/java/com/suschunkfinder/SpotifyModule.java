@@ -106,7 +106,8 @@ public final class SpotifyModule extends HudModule {
         }
         if (lines > 0) {
             String[] rows = lyrics.split("\\R");
-            long motionPeriod = switch (lyricMotion.index()) { case 1 -> 1600L; case 2 -> 3400L; default -> 2500L; };\n            int start = (int)((System.currentTimeMillis() / motionPeriod) % Math.max(1, rows.length));
+            long motionPeriod = switch (lyricMotion.index()) { case 1 -> 1600L; case 2 -> 3400L; default -> 2500L; };
+            int start = (int)((System.currentTimeMillis() / motionPeriod) % Math.max(1, rows.length));
             for (int i = 0; i < lines && i < rows.length; i++) {
                 int index = (start + i) % rows.length;
                 int color = i == 0 && lyricHighlight.index() != 2 ? highlightColor.argb() : (i == 0 ? lyricsColor.argb() : upcomingColor.argb());
