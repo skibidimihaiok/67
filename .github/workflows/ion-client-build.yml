@@ -163,6 +163,69 @@ jobs:
           find /tmp/uploaded-1.21.11-decompiled -type f | sort | head -350
           echo "=== DECOMPILED PvP / UI / KEYBIND REFERENCES ==="
           grep -RinE 'Kill.?Aura|Mace|PvP|key.?bind|KeyMapping|Screen|MODULES|module' /tmp/uploaded-1.21.11-decompiled --include='*.java' | head -300 || true
+      - name: Inspect the newer 1.21.11 base template and ION source
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/skbiditoilet-base /tmp/ion-source-review
+          unzip -q "skbiditoilet-fixed (1).zip" -d /tmp/skbiditoilet-base
+          unzip -q "ION-CLIENT-visuals-experimental.zip" -d /tmp/ion-source-review
+          BASE=$(find /tmp/skbiditoilet-base -name build.gradle -printf '%h\n' | head -1)
+          ION=$(find /tmp/ion-source-review -path '*/src/main/java/com/suschunkfinder/ModuleManager.java' -printf '%h\n' | head -1)
+          test -n "$BASE" && test -n "$ION"
+          echo "=== CONFIRMED BASE PROJECT === $BASE"
+          cat "$BASE/README-MODULE-PATCH.md" || true
+          cat "$BASE/build.gradle"
+          cat "$BASE/gradle.properties"
+          cat "$BASE/settings.gradle"
+          cat "$BASE/src/main/resources/fabric.mod.json"
+          echo "=== BASE REGISTERED MODULES ==="
+          sed -n '1,230p' "$BASE/src/main/java/com/suschunkfinder/ModuleManager.java"
+          echo "=== BASE UI AND KEYBIND SOURCE ==="
+          for file in ClickGuiModule.java ClickGuiScreen.java ModuleSettingsScreen.java Keys.java ModuleKeybinds.java ConfigManager.java SusChunkFinderClient.java ClientModule.java; do
+            echo "===== $file ====="
+            sed -n '1,250p' "$BASE/src/main/java/com/suschunkfinder/$file"
+          done
+          echo "=== BASE JAVA FILES ==="
+          find "$BASE/src/main/java" -type f -name '*.java' | sort
+          echo "=== ION PROJECT ROOT ==="
+          find /tmp/ion-source-review -maxdepth 4 -type f | sort | head -150
+          echo "=== ION REGISTERED MODULES ==="
+          sed -n '1,260p' "$ION/ModuleManager.java"
+          echo "=== ION MODULE FILES ==="
+          find "$(dirname "$ION")" -maxdepth 1 -type f -name '*.java' -printf '%f\n' | sort
+          echo "=== CLASS COLLISIONS AND DISPLAY-NAME COLLISIONS ==="
+          python3 - "$BASE" "$ION" <<'PY'
+          import pathlib,re,sys
+          base,ion=map(pathlib.Path,sys.argv[1:])
+          bdir=base/"src/main/java/com/suschunkfinder"
+          idir=ion
+          bnames={p.name for p in bdir.glob("*.java")}
+          inames={p.name for p in idir.glob("*.java")}
+          print("Same filenames:",sorted(bnames & inames))
+          def display(path):
+              text=path.read_text(errors="ignore")
+              m=re.search(r'super\(\s*"([^"]+)"',text)
+              return m.group(1).strip().lower() if m else None
+          bd={}
+          for p in bdir.glob("*Module.java"):
+              d=display(p)
+              if d: bd.setdefault(d,[]).append(p.name)
+          idup={}
+          for p in idir.glob("*Module.java"):
+              d=display(p)
+              if d and d in bd: idup.setdefault(d,[]).append(p.name)
+          print("Display-name collisions:",{k:{"base":bd[k],"ion":v} for k,v in sorted(idup.items())})
+          print("ION-only source candidates:",sorted(inames-bnames))
+          PY
+      - name: Upload base and ION source review
+        uses: actions/upload-artifact@v4
+        with:
+          name: base-ion-source-review
+          path: |
+            /tmp/skbiditoilet-base
+            /tmp/ion-source-review
+          if-no-files-found: error
+
       - name: Upload original 1.21.11 inspection
         uses: actions/upload-artifact@v4
         with:
