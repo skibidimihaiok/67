@@ -54,7 +54,7 @@ public final class RegionMapModule extends HudModule {
             maxX = Math.max(maxX, r.maxX); maxZ = Math.max(maxZ, r.maxZ);
         }
         double spanX = Math.max(1, maxX - minX), spanZ = Math.max(1, maxZ - minZ);
-        double scale = mapSize.get() / Math.max(spanX, spanZ);
+        double scale = (mapSize.get() * (cellSize.get() / 22.0)) / Math.max(spanX, spanZ);
         int mapW = Math.max(1, (int)(spanX * scale)), mapH = Math.max(1, (int)(spanZ * scale));
         if (shadow.get()) g.fill(x - 4, y - 4, x + mapW + 6, y + mapH + 6, 0x88000000);
         g.fill(x - 2, y - 2, x + mapW + 2, y + mapH + 2, 0xFF050B12);
@@ -71,7 +71,7 @@ public final class RegionMapModule extends HudModule {
             g.fill(x1, z1, x2, z1 + 1, color); g.fill(x1, z2 - 1, x2, z2, color);
             g.fill(x1, z1, x1 + 1, z2, color); g.fill(x2 - 1, z1, x2, z2, color);
             if (showIds.get()) {
-                String label = "#" + (i + 1) + " " + Hud.fit(region.name, Math.max(18, mapW / 2));
+                String label = "#" + (i + 1) + " " + Hud.fit(region.name, Math.max(18, (int)(mapW * textScale.get() / 2)));
                 if (textScale.get() < 0.6) label = "#" + (i + 1);
                 g.drawString(Minecraft.getInstance().font, label, x1 + 2, z1 + 2, Hud.WHITE, true);
             }
