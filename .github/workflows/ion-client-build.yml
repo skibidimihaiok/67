@@ -53,6 +53,8 @@ jobs:
           echo "Inspecting Anubis client: $ANUBIS_JAR"
           curl -fL --retry 3 -o /tmp/cfr.jar "https://repo1.maven.org/maven2/org/benf/cfr/0.152/cfr-0.152.jar"
           java -jar /tmp/cfr.jar "$ANUBIS_JAR" --outputdir /tmp/anubis-decompiled --silent true
+          cp /tmp/anubis-release/LICENSE_anubis /tmp/anubis-decompiled/LICENSE_anubis
+          cp /tmp/anubis-release/fabric.mod.json /tmp/anubis-decompiled/fabric.mod.json
           echo "=== DECOMPILED SOURCE FILES ==="
           find /tmp/anubis-decompiled -type f -name '*.java' | sort | head -300
           echo "=== REQUESTED MODULE MATCHES ==="
@@ -73,6 +75,13 @@ jobs:
         run: |
           mkdir ion-client
           unzip -q ION-CLIENT-visuals-experimental.zip -d ion-client
+
+      - name: Upload extracted ION Java source for adaptation
+        uses: actions/upload-artifact@v4
+        with:
+          name: ion-java-source
+          path: ion-client/src/main/java
+          if-no-files-found: error
 
       - name: Apply ION module overrides
         run: |
