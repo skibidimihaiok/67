@@ -57,22 +57,22 @@ if "public static void initForAnubisAddon()" not in text:
         if (initialized) return;
         initialized = true;""", 1)
 
-    match = re.search(r"(?m)^([ \\t]*)load\\(\\);\\n[ \\t]*ModuleKeybinds\\.register\\(\\);", text)
+    match = re.search(r"(?m)^([ \t]*)load\(\);\n[ \t]*ModuleKeybinds\.register\(\);", text)
     if match:
         indent = match.group(1)
         replacement = (
-            indent + "if (anubisAddon) MODULES.removeIf(ModuleManager::isAnubisDuplicate);\\n"
-            + indent + "load();\\n"
+            indent + "if (anubisAddon) MODULES.removeIf(ModuleManager::isAnubisDuplicate);\n"
+            + indent + "load();\n"
             + indent + "if (!anubisAddon) ModuleKeybinds.register();"
         )
         text = text[:match.start()] + replacement + text[match.end():]
     else:
-        load_match = re.search(r"(?m)^([ \\t]*)load\\(\\);", text)
+        load_match = re.search(r"(?m)^([ \\t]*)load\(\);", text)
         if not load_match:
             raise SystemExit("ModuleManager load() anchor missing")
         indent = load_match.group(1)
         replacement = (
-            indent + "if (anubisAddon) MODULES.removeIf(ModuleManager::isAnubisDuplicate);\\n"
+            indent + "if (anubisAddon) MODULES.removeIf(ModuleManager::isAnubisDuplicate);\n"
             + indent + "load();"
         )
         text = text[:load_match.start()] + replacement + text[load_match.end():]
