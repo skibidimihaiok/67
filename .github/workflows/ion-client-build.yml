@@ -483,3 +483,4 @@ jobs:
           if-no-files-found: error
 
 # Visual effect geometry sources are copied from ion-client-overrides during the build.
+# Always compile the branch's current override sources, including the Anubis-compatible modules.
