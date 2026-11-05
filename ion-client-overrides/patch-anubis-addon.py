@@ -67,7 +67,7 @@ if "public static void initForAnubisAddon()" not in text:
         )
         text = text[:match.start()] + replacement + text[match.end():]
     else:
-        load_match = re.search(r"(?m)^([ \\t]*)load\(\);", text)
+        load_match = re.search(r"(?m)^([ \t]*)load\(\);", text)
         if not load_match:
             raise SystemExit("ModuleManager load() anchor missing")
         indent = load_match.group(1)
