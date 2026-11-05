@@ -171,7 +171,8 @@ jobs:
 
           storage = root / "StorageEspModule.java"
           text = storage.read_text()
-          if 'BoolSetting tracers = add(BoolSetting.of("Tracers", true))' not in text:
+          if ('BoolSetting tracers = add(BoolSetting.of("Tracers", true))' not in text
+                  and 'BoolSetting tracers = add(BoolSetting.of("Tracers", false))' not in text):
               text = text.replace("package com.suschunkfinder;\n", "package com.suschunkfinder;\n\nimport net.minecraft.client.Minecraft;\nimport net.minecraft.world.phys.Vec3;\n", 1)
               text = text.replace(
                   'private final BoolSetting fill = add(BoolSetting.of("Filled", true));',
