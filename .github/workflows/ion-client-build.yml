@@ -60,10 +60,17 @@ jobs:
           cat /tmp/anubis-release/fabric.mod.json
           echo "=== ANUBIS MODULE EXTENSION API ==="
           for file in \
+            /tmp/anubis-decompiled/net/anubis/client/addon/AnubisAddon.java \
             /tmp/anubis-decompiled/net/anubis/client/addon/AddonManager.java \
             /tmp/anubis-decompiled/net/anubis/client/module/ModuleProvider.java \
             /tmp/anubis-decompiled/net/anubis/client/module/ModuleRegistry.java \
+            /tmp/anubis-decompiled/net/anubis/client/module/ModuleCategory.java \
             /tmp/anubis-decompiled/net/anubis/client/module/ClientModule.java \
+            /tmp/anubis-decompiled/net/anubis/client/module/setting/Setting.java \
+            /tmp/anubis-decompiled/net/anubis/client/module/setting/BooleanSetting.java \
+            /tmp/anubis-decompiled/net/anubis/client/module/setting/NumberSetting.java \
+            /tmp/anubis-decompiled/net/anubis/client/module/setting/ModeSetting.java \
+            /tmp/anubis-decompiled/net/anubis/client/module/setting/ColorSetting.java \
             /tmp/anubis-decompiled/net/anubis/client/AnubisClientMod.java; do
             if [ -f "$file" ]; then
               echo "===== $file ====="
