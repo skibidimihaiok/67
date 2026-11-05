@@ -8,7 +8,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.animal.Animal;
-import net.minecraft.world.entity.animal.WaterAnimal;
+import net.minecraft.world.entity.animal.AgeableWaterCreature;
 import net.minecraft.world.entity.ambient.AmbientCreature;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.player.Player;
@@ -51,7 +51,7 @@ public final class TracersModule extends ClientModule implements EspSource {
 
     private ColorSetting group(Entity e) {
         if (e instanceof Player) return players.get() ? playersColor : null;
-        if (e instanceof WaterAnimal) return waterAnimals.get() ? waterColor : null;
+        if (e instanceof AgeableWaterCreature) return waterAnimals.get() ? waterColor : null;
         if (e instanceof Animal) return animals.get() ? animalsColor : null;
         if (e instanceof Enemy) return monsters.get() ? monstersColor : null;
         if (e instanceof AmbientCreature) return ambient.get() ? ambientColor : null;
@@ -66,7 +66,7 @@ public final class TracersModule extends ClientModule implements EspSource {
             if (e == client.player && ignoreSelf.get()) continue;
             if (e == client.player || client.player.distanceTo(e) > maxDistance.get()) continue;
             if (!showInvisible.get() && e.isInvisible()) continue;
-            if (e instanceof Player p && ignoreFriends.get() && NameList.FRIENDS.contains(p.getGameProfile().getName())) continue;
+            if (e instanceof Player p && ignoreFriends.get() && NameList.FRIENDS.contains(p.getGameProfile().name())) continue;
             if (group(e) != null) out.add(e);
         }
         return out;
