@@ -93,7 +93,7 @@ public final class TracersModule extends ClientModule implements EspSource {
 
     private int colorFor(Minecraft client, Entity e, ColorSetting base) {
         if (e instanceof Player p) {
-            if (NameList.FRIENDS.contains(p.getGameProfile().getName()) && showFriendColors.get()) return friendColor.argb();
+            if (NameList.FRIENDS.contains(p.getGameProfile().name()) && showFriendColors.get()) return friendColor.argb();
             if (teamColors.get() && !distanceColors.get() && p.getTeamColor() != -1) return 0xFF000000 | (p.getTeamColor() & 0xFFFFFF);
         }
         if (!distanceColors.get()) return base.argb();
