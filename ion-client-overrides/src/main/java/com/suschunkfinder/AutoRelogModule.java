@@ -55,7 +55,7 @@ public final class AutoRelogModule extends ClientModule {
                 rejoinTicks = (int)Math.round(delay.get() * 20.0);
                 client.player.displayClientMessage(Component.literal("[ION] Auto Relog: reconnecting..."), true);
                 client.disconnect(new TitleScreen(), false);
-                disconnected = true;
+                disconnected = false;
             }
         }
     }
