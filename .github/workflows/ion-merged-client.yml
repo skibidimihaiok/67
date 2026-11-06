@@ -76,13 +76,12 @@ jobs:
           removed_base = []
           for cls in ("PlayerEspModule", "StorageEspModule", "TracersModule",
                       "KillAuraModule", "MaceModule", "AutoMaceModule"):
-              text, count = re.subn(
-                  r"(?m)^[ \\t]*MODULES\\.add\\(new " + re.escape(cls) + r"\\(\\)\\);[ \\t]*\\n",
-                  "",
-                  text
-              )
-              if count:
+              marker = f"MODULES.add(new {cls}());"
+              lines = text.splitlines(keepends=True)
+              kept = [line for line in lines if line.strip() != marker]
+              if len(kept) != len(lines):
                   removed_base.append(cls)
+                  text = "".join(kept)
           manager.write_text(text, encoding="utf-8")
 
           # These are deliberately not imported from ION. The base client's own
@@ -310,14 +309,18 @@ jobs:
               base_meta["jars"] = jars
               # Keep the original mod ID and original classes/mixins intact.
               base_meta["name"] = "ION Client"
-              meta_bytes = (json.dumps(base_meta, indent=2, ensure_ascii=False) + "\n").encode()
+              icon_path = "assets/skbiditoilet/icon.png"
+              icon_bytes = built.read(icon_path)
+              base_meta["icon"] = icon_path
+              meta_bytes = (json.dumps(base_meta, indent=2, ensure_ascii=False) + "\\n").encode()
 
               with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as merged:
                   for info in base.infolist():
-                      if info.filename == "fabric.mod.json":
+                      if info.filename in ("fabric.mod.json", icon_path):
                           continue
                       merged.writestr(info, base.read(info.filename))
                   merged.writestr("fabric.mod.json", meta_bytes)
+                  merged.writestr(icon_path, icon_bytes)
                   merged.writestr(nested, addon.read_bytes())
 
           with zipfile.ZipFile(output) as check:
@@ -325,6 +328,8 @@ jobs:
                   raise SystemExit("Merged client failed ZIP integrity validation.")
               meta = json.loads(check.read("fabric.mod.json"))
               assert meta.get("id") == "reborn-dynamic-fps", meta.get("id")
+              assert meta.get("icon") == "assets/skbiditoilet/icon.png"
+              assert check.read("assets/skbiditoilet/icon.png")
               assert any(entry.get("file") == nested for entry in meta.get("jars", []))
               embedded = check.read(nested)
               with open("/tmp/embedded-ion.jar", "wb") as f:
