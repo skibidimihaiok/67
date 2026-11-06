@@ -46,6 +46,12 @@ jobs:
           chmod +x "$BASE/gradlew"
           echo "Base GUI: $BASE"
           echo "ION source: $ION_JAVA"
+          echo "=== BASE ESP BATCH API ==="
+          sed -n '1,260p' "$BASE/src/main/java/com/suschunkfinder/EspBatch.java"
+          echo "=== BASE ESP RENDERER API ==="
+          sed -n '1,300p' "$BASE/src/main/java/com/suschunkfinder/EspRenderer.java"
+          echo "=== BASE COORDINATES MODULE ==="
+          sed -n '1,120p' "$BASE/src/main/java/com/suschunkfinder/CoordinatesHudModule.java"
 
       - name: Merge unique ION modules into the existing module registry
         shell: bash
@@ -73,6 +79,7 @@ jobs:
               "StorageEspModule.java",
               "PlayerEspModule.java",
               "TracersModule.java",
+              "CombatFeatureModule.java",
           }
           excluded_core = {
               "ClientModule.java", "ModuleManager.java", "ModuleKeybinds.java",
@@ -108,7 +115,7 @@ jobs:
                       continue
                   if path.name in existing_files:
                       continue
-                  if path.name == "TurnMixin.java" or "anubisaddon" in path.parts:
+                  if path.name == "TurnMixin.java" or "anubisaddon" in path.parts or "mixin" in path.parts:
                       continue
                   candidates.setdefault(path.name, path)
 
@@ -152,6 +159,47 @@ jobs:
           registrations = "".join(f"\t\tMODULES.add(new {cls}());\n" for cls in added_modules)
           text = text[:at] + registrations + text[at:]
           manager.write_text(text, encoding="utf-8")
+
+          # Support ION one-shot action modules within the original keybind layer.
+          client_module = target / "ClientModule.java"
+          client_text = client_module.read_text(encoding="utf-8")
+          if "public void onBindAction()" not in client_text:
+              marker = "\tprotected void onEnable()"
+              if marker not in client_text:
+                  raise SystemExit("Cannot safely extend ClientModule with its default bind action.")
+              client_text = client_text.replace(
+                  marker,
+                  "\tpublic void onBindAction() { setEnabled(!isEnabled()); }\n\n" + marker,
+                  1
+              )
+              client_module.write_text(client_text, encoding="utf-8")
+
+          keybind_file = target / "ModuleKeybinds.java"
+          keybind_text = keybind_file.read_text(encoding="utf-8")
+          keybind_text = keybind_text.replace(
+              "entry.getKey().setEnabled(!entry.getKey().isEnabled());",
+              "entry.getKey().onBindAction();"
+          )
+          keybind_file.write_text(keybind_text, encoding="utf-8")
+
+          for action_name in ("AttributeSwapModule.java", "AutoWitherModule.java", "AutoPearlCatchModule.java"):
+              action_file = target / action_name
+              if action_file.exists():
+                  action_text = action_file.read_text(encoding="utf-8")
+                  action_text = re.sub(
+                      r"(public void onBindAction\\(\\)\\s*\\{\\s*)",
+                      r"\\1if (!isEnabled()) setEnabled(true);\\n        ",
+                      action_text,
+                      count=1
+                  )
+                  action_file.write_text(action_text, encoding="utf-8")
+
+          # 1.21.11 renamed ResourceKey.location() to identifier().
+          coordinates = target / "CoordinatesHudModule.java"
+          if coordinates.exists():
+              src = coordinates.read_text(encoding="utf-8")
+              src = src.replace(".dimension().location()", ".dimension().identifier()")
+              coordinates.write_text(src, encoding="utf-8")
 
           # Do not replace the existing GUI, settings screen, config manager,
           # or keybind layer. The base manager's dynamic module iteration makes
