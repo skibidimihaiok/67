@@ -312,7 +312,7 @@ jobs:
               icon_path = "assets/skbiditoilet/icon.png"
               icon_bytes = built.read(icon_path)
               base_meta["icon"] = icon_path
-              meta_bytes = (json.dumps(base_meta, indent=2, ensure_ascii=False) + "\\n").encode()
+              meta_bytes = (json.dumps(base_meta, indent=2, ensure_ascii=False) + chr(10)).encode()
 
               with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as merged:
                   for info in base.infolist():
