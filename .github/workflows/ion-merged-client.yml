@@ -208,6 +208,33 @@ jobs:
                   )
                   action_file.write_text(action_text, encoding="utf-8")
 
+          # Show brief client status notices when the client starts and when a
+          # multiplayer connection is joined or closed.
+          entrypoint = target / "SusChunkFinderClient.java"
+          entry = entrypoint.read_text(encoding="utf-8")
+          if "ClientPlayConnectionEvents.JOIN.register" not in entry:
+              entry = entry.replace(
+                  "import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;",
+                  "import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;\\nimport net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;"
+              )
+              entry = entry.replace(
+                  "import net.minecraft.resources.Identifier;",
+                  "import net.minecraft.resources.Identifier;\\nimport net.minecraft.network.chat.Component;"
+              )
+              init_marker = "\\t\\tConfig.get();\\n"
+              notices = (
+                  "\\t\\tClientLifecycleEvents.CLIENT_STARTED.register(client -> "
+                  "client.gui.setOverlayMessage(Component.literal(\\"ION Client ready\\"), false));\\n"
+                  "\\t\\tClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> "
+                  "client.gui.setOverlayMessage(Component.literal(\\"ION Client connected\\"), false));\\n"
+                  "\\t\\tClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> "
+                  "client.gui.setOverlayMessage(Component.literal(\\"ION Client disconnected\\"), false));\\n"
+              )
+              if init_marker not in entry:
+                  raise SystemExit("Could not safely insert ION lifecycle status notices.")
+              entry = entry.replace(init_marker, init_marker + notices, 1)
+              entrypoint.write_text(entry, encoding="utf-8")
+
           # Add the thin 3D line primitive used by ION's particle/trajectory effects.
           batch = target / "EspBatch.java"
           batch_text = batch.read_text(encoding="utf-8")
