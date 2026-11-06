@@ -1,0 +1,244 @@
+name: Build single-file ION Client 1.21.11
+
+on:
+  push:
+    branches: [ion-client-development]
+    paths:
+      - 'ION-CLIENT-visuals-experimental.zip'
+      - 'skbiditoilet-fixed (1).zip'
+      - 'ion-client-overrides/src/main/java/**'
+      - '.github/workflows/ion-merged-client.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Prepare the original 1.21.11 source GUI and ION module sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/base-source /tmp/ion-source
+          unzip -q "skbiditoilet-fixed (1).zip" -d /tmp/base-source
+          unzip -q "ION-CLIENT-visuals-experimental.zip" -d /tmp/ion-source
+          BASE="$(find /tmp/base-source -type f -name build.gradle -printf '%h\n' | head -1)"
+          ION_ROOT="$(find /tmp/ion-source -type f -name gradlew -printf '%h\n' | head -1)"
+          ION_JAVA="$(find /tmp/ion-source -path '*/src/main/java/com/suschunkfinder/ModuleManager.java' -printf '%h\n' | head -1)"
+          test -n "$BASE" && test -n "$ION_ROOT" && test -n "$ION_JAVA"
+          echo "BASE=$BASE" >> "$GITHUB_ENV"
+          echo "ION_ROOT=$ION_ROOT" >> "$GITHUB_ENV"
+          echo "ION_JAVA=$ION_JAVA" >> "$GITHUB_ENV"
+          # Reuse the checked-in wrapper from the matching 1.21.11 ION project.
+          cp "$ION_ROOT/gradlew" "$BASE/gradlew"
+          cp -R "$ION_ROOT/gradle" "$BASE/gradle"
+          chmod +x "$BASE/gradlew"
+          echo "Base GUI: $BASE"
+          echo "ION source: $ION_JAVA"
+
+      - name: Merge unique ION modules into the existing module registry
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - "$BASE" "$ION_JAVA" "$GITHUB_WORKSPACE/ion-client-overrides/src/main/java/com/suschunkfinder" <<'PY'
+          from pathlib import Path
+          import re, shutil, sys
+
+          base = Path(sys.argv[1])
+          ion = Path(sys.argv[2])
+          overrides = Path(sys.argv[3])
+          target = base / "src/main/java/com/suschunkfinder"
+          manager = target / "ModuleManager.java"
+          if not manager.is_file():
+              raise SystemExit("The 1.21.11 base source has no ModuleManager.java")
+          text = manager.read_text(encoding="utf-8")
+
+          # These are deliberately not imported from ION. The base client's own
+          # PvP/ESP implementations remain authoritative.
+          excluded = {
+              "KillAuraModule.java",
+              "MaceModule.java",
+              "AutoMaceModule.java",
+              "StorageEspModule.java",
+              "PlayerEspModule.java",
+              "TracersModule.java",
+          }
+          excluded_core = {
+              "ClientModule.java", "ModuleManager.java", "ModuleKeybinds.java",
+              "ModuleSettingsScreen.java", "ClickGuiScreen.java",
+              "SusChunkFinderClient.java", "IonAddonRuntime.java",
+              "IonAnubisAddon.java", "IonModuleAdapter.java",
+              "IonModuleProvider.java",
+          }
+
+          existing_files = {p.name for p in target.glob("*.java")}
+          existing_classes = set(re.findall(r"new\s+([A-Za-z_$][\w$]*)\s*\(", text))
+          registered = set(existing_classes)
+
+          def display_name(path: Path):
+              source = path.read_text(encoding="utf-8", errors="replace")
+              match = re.search(r'super\s*\(\s*"([^"]+)"', source)
+              return match.group(1).strip().casefold() if match else None
+
+          existing_names = set()
+          for cls in registered:
+              candidate = target / (cls + ".java")
+              if candidate.is_file():
+                  name = display_name(candidate)
+                  if name:
+                      existing_names.add(name)
+
+          candidates = {}
+          for root in (ion, overrides):
+              if not root.exists():
+                  continue
+              for path in root.rglob("*.java"):
+                  if path.name in excluded or path.name in excluded_core:
+                      continue
+                  if path.name in existing_files:
+                      continue
+                  if path.name == "TurnMixin.java" or "anubisaddon" in path.parts:
+                      continue
+                  candidates.setdefault(path.name, path)
+
+          added_modules = []
+          copied_helpers = []
+          for filename, source in sorted(candidates.items()):
+              if filename in excluded or filename in excluded_core:
+                  continue
+              destination = target / filename
+              if destination.exists():
+                  continue
+              if filename.endswith("Module.java"):
+                  cls = filename[:-5]
+                  if cls in registered:
+                      continue
+                  name = display_name(source)
+                  if name and name in existing_names:
+                      print(f"SKIP duplicate display name: {filename} ({name})")
+                      continue
+                  shutil.copy2(source, destination)
+                  added_modules.append(cls)
+                  registered.add(cls)
+                  if name:
+                      existing_names.add(name)
+              else:
+                  shutil.copy2(source, destination)
+                  copied_helpers.append(filename)
+
+          if not added_modules:
+              raise SystemExit("No unique ION modules were selected; refusing an empty merge.")
+
+          marker = re.search(r"(?m)^\s*//\s*Macro\s*$", text)
+          if marker:
+              at = marker.start()
+          else:
+              marker = re.search(r"(?m)^\s*load\(\);", text)
+              if not marker:
+                  raise SystemExit("Could not find a safe module-registration insertion point.")
+              at = marker.start()
+
+          registrations = "".join(f"\t\tMODULES.add(new {cls}());\n" for cls in added_modules)
+          text = text[:at] + registrations + text[at:]
+          manager.write_text(text, encoding="utf-8")
+
+          # Do not replace the existing GUI, settings screen, config manager,
+          # or keybind layer. The base manager's dynamic module iteration makes
+          # each new module appear in the same GUI/settings/keybind system.
+          print("Added modules:", ", ".join(added_modules))
+          print("Added helper sources:", ", ".join(copied_helpers))
+          print("Excluded by request:", ", ".join(sorted(excluded)))
+          print("Existing GUI and keybind sources left unchanged.")
+          PY
+
+      - name: Build the merged 1.21.11 client source
+        working-directory: /tmp/base-source
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="$(find /tmp/base-source -type f -name build.gradle -printf '%h\n' | head -1)"
+          cd "$BASE"
+          ./gradlew --no-daemon --stacktrace clean build
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          JAR="$(find build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' | head -1)"
+          test -n "$JAR"
+          cp "$JAR" "$GITHUB_WORKSPACE/dist/ion-client-modules-1.21.11.jar"
+
+      - name: Verify and package everything inside the exact released 1.21.11 JAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --retry-delay 2 -o /tmp/original-1.21.11.jar "https://github.com/skibidimihaiok/67/releases/download/Anubis/1.21.11.jar"
+          echo "90af3f4a2c85e2abf84f47e7d7390ee5203c6ded80b42c3c63083c3133c234e0  /tmp/original-1.21.11.jar" | sha256sum -c -
+          python3 - <<'PY'
+          import json, zipfile
+          from pathlib import Path
+
+          original = Path("/tmp/original-1.21.11.jar")
+          addon = Path("dist/ion-client-modules-1.21.11.jar")
+          output = Path("dist/ION-CLIENT-1.21.11-MERGED.jar")
+          nested = "META-INF/jars/ion-client-modules-1.21.11.jar"
+
+          with zipfile.ZipFile(original) as base, zipfile.ZipFile(addon) as built:
+              if base.testzip() or built.testzip():
+                  raise SystemExit("A source JAR failed ZIP integrity validation.")
+              base_meta = json.loads(base.read("fabric.mod.json"))
+              inner_meta = json.loads(built.read("fabric.mod.json"))
+              if inner_meta.get("id") == base_meta.get("id"):
+                  raise SystemExit("Nested client mod ID collides with the original base mod ID.")
+              jars = list(base_meta.get("jars", []))
+              jars = [entry for entry in jars if entry.get("file") != nested]
+              jars.append({"file": nested})
+              base_meta["jars"] = jars
+              # Keep the original mod ID and original classes/mixins intact.
+              base_meta["name"] = "ION Client"
+              meta_bytes = (json.dumps(base_meta, indent=2, ensure_ascii=False) + "\n").encode()
+
+              with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as merged:
+                  for info in base.infolist():
+                      if info.filename == "fabric.mod.json":
+                          continue
+                      merged.writestr(info, base.read(info.filename))
+                  merged.writestr("fabric.mod.json", meta_bytes)
+                  merged.writestr(nested, addon.read_bytes())
+
+          with zipfile.ZipFile(output) as check:
+              if check.testzip():
+                  raise SystemExit("Merged client failed ZIP integrity validation.")
+              meta = json.loads(check.read("fabric.mod.json"))
+              assert meta.get("id") == "reborn-dynamic-fps", meta.get("id")
+              assert any(entry.get("file") == nested for entry in meta.get("jars", []))
+              embedded = check.read(nested)
+              with open("/tmp/embedded-ion.jar", "wb") as f:
+                  f.write(embedded)
+          with zipfile.ZipFile("/tmp/embedded-ion.jar") as check:
+              if check.testzip():
+                  raise SystemExit("Embedded ION client failed ZIP integrity validation.")
+              inner = json.loads(check.read("fabric.mod.json"))
+              assert inner.get("depends", {}).get("minecraft"), inner
+              classes = [n for n in check.namelist() if n.endswith(".class")]
+              if len(classes) < 30:
+                  raise SystemExit(f"Embedded client contains too few classes: {len(classes)}")
+              print("Embedded mod:", inner.get("name"), inner.get("id"))
+              print("Embedded classes:", len(classes))
+          print("Created:", output)
+          PY
+          sha256sum dist/ION-CLIENT-1.21.11-MERGED.jar
+
+      - name: Upload the single combined JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: ION-CLIENT-1.21.11-MERGED
+          path: dist/ION-CLIENT-1.21.11-MERGED.jar
+          if-no-files-found: error
