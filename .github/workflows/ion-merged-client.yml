@@ -187,8 +187,8 @@ jobs:
               if action_file.exists():
                   action_text = action_file.read_text(encoding="utf-8")
                   action_text = re.sub(
-                      r"(public void onBindAction\\(\\)\\s*\\{\\s*)",
-                      r"\\1if (!isEnabled()) setEnabled(true);\\n        ",
+                      r"(public void onBindAction\(\)\s*\{\s*)",
+                      r"\1if (!isEnabled()) setEnabled(true);\n        ",
                       action_text,
                       count=1
                   )
