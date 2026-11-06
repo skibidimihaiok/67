@@ -337,6 +337,48 @@ jobs:
               jars = [entry for entry in jars if entry.get("file") != nested]
               jars.append({"file": nested})
               base_meta["jars"] = jars
+
+              # Fabric Mixin config names are global to the launch. The original
+              # Dynamic FPS mod can be installed next to this renamed outer mod,
+              # so give the outer mod's configs and refmaps unique resource names.
+              original_resources = set()
+              renamed_resources = {}
+              mixin_entries = base_meta.get("mixins", [])
+              if not isinstance(mixin_entries, list):
+                  raise SystemExit("Unexpected Fabric mixins metadata format.")
+              for index, entry in enumerate(mixin_entries):
+                  config_name = entry if isinstance(entry, str) else (
+                      entry.get("config") if isinstance(entry, dict) else None
+                  )
+                  if not isinstance(config_name, str):
+                      continue
+                  if config_name not in base.namelist():
+                      raise SystemExit(f"Declared Mixin config is missing: {config_name}")
+                  config = json.loads(base.read(config_name))
+                  old_refmap = config.get("refmap")
+                  if isinstance(old_refmap, str) and old_refmap in base.namelist():
+                      new_refmap = f"ion-client-base-{index}-refmap.json"
+                      config["refmap"] = new_refmap
+                      renamed_resources[new_refmap] = (
+                          json.dumps(config_refmap := json.loads(base.read(old_refmap)),
+                                     ensure_ascii=False, separators=(",", ":")) + chr(10)
+                      ).encode()
+                      original_resources.add(old_refmap)
+                  new_config = f"ion-client-base-{index}.mixins.json"
+                  renamed_resources[new_config] = (
+                      json.dumps(config, indent=2, ensure_ascii=False) + chr(10)
+                  ).encode()
+                  original_resources.add(config_name)
+                  if isinstance(entry, str):
+                      mixin_entries[index] = new_config
+                  else:
+                      entry["config"] = new_config
+              base_meta["mixins"] = mixin_entries
+              print("Renamed outer Mixin configs:", ", ".join(
+                  entry if isinstance(entry, str) else entry.get("config", "")
+                  for entry in mixin_entries if isinstance(entry, (str, dict))
+              ))
+
               # Keep the original mod ID and original classes/mixins intact.
               base_meta["name"] = "ION Client"
               icon_path = "assets/skbiditoilet/icon.png"
@@ -346,11 +388,13 @@ jobs:
 
               with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as merged:
                   for info in base.infolist():
-                      if info.filename in ("fabric.mod.json", icon_path):
+                      if info.filename in ("fabric.mod.json", icon_path) or info.filename in original_resources:
                           continue
                       merged.writestr(info, base.read(info.filename))
                   merged.writestr("fabric.mod.json", meta_bytes)
                   merged.writestr(icon_path, icon_bytes)
+                  for resource_name, resource_bytes in renamed_resources.items():
+                      merged.writestr(resource_name, resource_bytes)
                   merged.writestr(nested, addon.read_bytes())
 
           with zipfile.ZipFile(output) as check:
