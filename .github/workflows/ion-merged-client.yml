@@ -188,11 +188,54 @@ jobs:
                   action_text = action_file.read_text(encoding="utf-8")
                   action_text = re.sub(
                       r"(public void onBindAction\(\)\s*\{\s*)",
-                      r"\1if (!isEnabled()) setEnabled(true);\n        ",
+                      r"\1if (isEnabled()) { setEnabled(false); return; }\n        setEnabled(true);\n        ",
                       action_text,
                       count=1
                   )
                   action_file.write_text(action_text, encoding="utf-8")
+
+          # Add the thin 3D line primitive used by ION's particle/trajectory effects.
+          batch = target / "EspBatch.java"
+          batch_text = batch.read_text(encoding="utf-8")
+          if "public void line(Vec3 from, Vec3 to," not in batch_text:
+              method = """
+          	/** Draws a thin, oriented 3D segment using the existing filled-geometry batch. */
+          	public void line(Vec3 from, Vec3 to, float r, float g, float bl, float a, double thickness) {
+          		Vec3 direction = to.subtract(from);
+          		double length = direction.length();
+          		if (length < 1.0E-7) return;
+          		direction = direction.scale(1.0 / length);
+          		Vec3 reference = Math.abs(direction.y) < 0.9 ? new Vec3(0, 1, 0) : new Vec3(1, 0, 0);
+          		Vec3 side = direction.cross(reference).normalize().scale(thickness * 0.5);
+          		Vec3 up = direction.cross(side).normalize().scale(thickness * 0.5);
+          		Vec3 p0 = from.subtract(side).subtract(up);
+          		Vec3 p1 = from.add(side).subtract(up);
+          		Vec3 p2 = from.add(side).add(up);
+          		Vec3 p3 = from.subtract(side).add(up);
+          		Vec3 q0 = to.subtract(side).subtract(up);
+          		Vec3 q1 = to.add(side).subtract(up);
+          		Vec3 q2 = to.add(side).add(up);
+          		Vec3 q3 = to.subtract(side).add(up);
+          		v(p0.x, p0.y, p0.z, r, g, bl, a); v(p1.x, p1.y, p1.z, r, g, bl, a);
+          		v(p2.x, p2.y, p2.z, r, g, bl, a); v(p3.x, p3.y, p3.z, r, g, bl, a);
+          		v(q1.x, q1.y, q1.z, r, g, bl, a); v(q0.x, q0.y, q0.z, r, g, bl, a);
+          		v(q3.x, q3.y, q3.z, r, g, bl, a); v(q2.x, q2.y, q2.z, r, g, bl, a);
+          		v(p0.x, p0.y, p0.z, r, g, bl, a); v(q0.x, q0.y, q0.z, r, g, bl, a);
+          		v(q1.x, q1.y, q1.z, r, g, bl, a); v(p1.x, p1.y, p1.z, r, g, bl, a);
+          		v(p1.x, p1.y, p1.z, r, g, bl, a); v(q1.x, q1.y, q1.z, r, g, bl, a);
+          		v(q2.x, q2.y, q2.z, r, g, bl, a); v(p2.x, p2.y, p2.z, r, g, bl, a);
+          		v(p2.x, p2.y, p2.z, r, g, bl, a); v(q2.x, q2.y, q2.z, r, g, bl, a);
+          		v(q3.x, q3.y, q3.z, r, g, bl, a); v(p3.x, p3.y, p3.z, r, g, bl, a);
+          		v(p3.x, p3.y, p3.z, r, g, bl, a); v(q3.x, q3.y, q3.z, r, g, bl, a);
+          		v(q0.x, q0.y, q0.z, r, g, bl, a); v(p0.x, p0.y, p0.z, r, g, bl, a);
+          		shapes++;
+          	}
+          """
+              idx = batch_text.rfind("}")
+              if idx < 0:
+                  raise SystemExit("Cannot safely add line primitive to EspBatch.")
+              batch_text = batch_text[:idx] + method + batch_text[idx:]
+              batch.write_text(batch_text, encoding="utf-8")
 
           # 1.21.11 renamed ResourceKey.location() to identifier().
           coordinates = target / "CoordinatesHudModule.java"
