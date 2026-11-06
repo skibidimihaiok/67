@@ -73,6 +73,33 @@ jobs:
           echo "=== FABRIC META / MIXINS ==="
           unzip -p /tmp/original.jar fabric.mod.json > /tmp/native-gui/fabric.mod.json
           cat /tmp/native-gui/fabric.mod.json
+          echo "=== NATIVE MODULE BASE LIFECYCLE BYTECODE ==="
+          javap -classpath /tmp/original.jar -p -c a.d_ > /tmp/native-gui/module-base-bytecode.txt
+          echo "=== NATIVE REGISTRY BYTECODE ==="
+          javap -classpath /tmp/original.jar -p -c a.da > /tmp/native-gui/module-registry-bytecode.txt
+          echo "=== NATIVE GUI SCREEN BYTECODE ==="
+          javap -classpath /tmp/original.jar -p -c a.cB > /tmp/native-gui/native-module-screen-bytecode.txt
+          echo "=== CLASSES REFERENCING NATIVE REGISTRY ==="
+          python3 - <<'PY'
+          import zipfile, subprocess, re
+          jar_path = "/tmp/original.jar"
+          with zipfile.ZipFile(jar_path) as z:
+              names = [n[:-6].replace("/", ".") for n in z.namelist()
+                       if n.endswith(".class") and n.startswith("a/")]
+              matches = []
+              for name in names:
+                  raw = z.read(name.replace(".", "/") + ".class")
+                  if b"a/da" in raw or b"a/d_" in raw:
+                      matches.append(name)
+          print("Class files mentioning a.da or a.d_:", matches)
+          with open("/tmp/native-gui/registry-callers.txt", "w") as out:
+              for name in matches:
+                  p = subprocess.run(["javap", "-classpath", jar_path, "-p", "-c", name],
+                                     text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                  if "a/da" in p.stdout or "a.d_" in p.stdout:
+                      out.write("\\n===== " + name + " =====\\n")
+                      out.write(p.stdout[:40000] + "\\n")
+          PY
           echo "=== TOP REGISTRY CANDIDATES ==="
           sed -n '1,900p' /tmp/native-gui/module-registry-candidates.txt
           echo "=== KEYBIND CANDIDATES ==="
