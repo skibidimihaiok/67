@@ -70,6 +70,21 @@ jobs:
               raise SystemExit("The 1.21.11 base source has no ModuleManager.java")
           text = manager.read_text(encoding="utf-8")
 
+          # The nested helper project must not create competing copies of the
+          # excluded base-client PvP/ESP modules. The original outer 1.21.11 JAR
+          # remains untouched and remains the source for those features.
+          removed_base = []
+          for cls in ("PlayerEspModule", "StorageEspModule", "TracersModule",
+                      "KillAuraModule", "MaceModule", "AutoMaceModule"):
+              text, count = re.subn(
+                  r"(?m)^[ \\t]*MODULES\\.add\\(new " + re.escape(cls) + r"\\(\\)\\);[ \\t]*\\n",
+                  "",
+                  text
+              )
+              if count:
+                  removed_base.append(cls)
+          manager.write_text(text, encoding="utf-8")
+
           # These are deliberately not imported from ION. The base client's own
           # PvP/ESP implementations remain authoritative.
           excluded = {
@@ -249,7 +264,8 @@ jobs:
           # each new module appear in the same GUI/settings/keybind system.
           print("Added modules:", ", ".join(added_modules))
           print("Added helper sources:", ", ".join(copied_helpers))
-          print("Excluded by request:", ", ".join(sorted(excluded)))
+          print("Excluded ION modules:", ", ".join(sorted(excluded)))
+          print("Removed helper-project duplicates:", ", ".join(removed_base))
           print("Existing GUI and keybind sources left unchanged.")
           PY
 
