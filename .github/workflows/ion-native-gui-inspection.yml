@@ -1,0 +1,84 @@
+name: Inspect original 1.21.11 GUI and module API
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ion-client-development]
+    paths:
+      - '.github/workflows/ion-native-gui-inspection.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Download and verify the original client
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --retry-delay 2 -o /tmp/original.jar "https://github.com/skibidimihaiok/67/releases/download/Anubis/1.21.11.jar"
+          echo "90af3f4a2c85e2abf84f47e7d7390ee5203c6ded80b42c3c63083c3133c234e0  /tmp/original.jar" | sha256sum -c -
+      - name: Inspect module superclass, GUI screens, and native module registry
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/native-gui
+          echo "=== MODULE BASE CLASS a.d_ ==="
+          javap -classpath /tmp/original.jar -p -s a.d_ > /tmp/native-gui/module-base.txt 2>&1 || true
+          cat /tmp/native-gui/module-base.txt
+          echo "=== ORIGINAL SCREENS ==="
+          for cls in a.ao a.cB a.cs a.i; do
+            echo "===== $cls ====="
+            javap -classpath /tmp/original.jar -p -s "$cls" 2>&1 | head -260
+          done
+          python3 - <<'PY'
+          import pathlib, re, subprocess, zipfile
+          jar_path = "/tmp/original.jar"
+          out = pathlib.Path("/tmp/native-gui")
+          with zipfile.ZipFile(jar_path) as z:
+              classes = [n[:-6].replace("/", ".") for n in z.namelist()
+                         if n.endswith(".class") and n.startswith("a/")]
+          print("Obfuscated package class count:", len(classes))
+          registry = []
+          key_candidates = []
+          for cls in classes:
+              p = subprocess.run(
+                  ["javap", "-classpath", jar_path, "-p", "-c", cls],
+                  text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+              )
+              body = p.stdout
+              new_types = re.findall(r"// class a/([^\\s]+)", body)
+              module_news = [x for x in new_types if x != "d_" and not x.startswith("java/")]
+              if len(module_news) >= 3 or ("a/d_" in body and len(module_news) >= 1):
+                  registry.append((cls, module_news[:100], body[:30000]))
+              if re.search(r"GLFW|LEFT_SHIFT|SHIFT|KeyMapping|KeyBinding|KeyboardHandler|keyPressed|method_1508|method_1479", body, re.I):
+                  key_candidates.append((cls, body[:24000]))
+          with (out / "module-registry-candidates.txt").open("w") as f:
+              for cls, types, body in registry:
+                  f.write("\\n===== " + cls + " | new a/* types: " + ", ".join(types) + " =====\\n")
+                  f.write(body + "\\n")
+          with (out / "keybind-candidates.txt").open("w") as f:
+              for cls, body in key_candidates:
+                  f.write("\\n===== " + cls + " =====\\n" + body + "\\n")
+          print("Potential module/registry classes:", [x[0] for x in registry])
+          print("Potential keybind/keyboard classes:", [x[0] for x in key_candidates])
+          PY
+          echo "=== FABRIC META / MIXINS ==="
+          unzip -p /tmp/original.jar fabric.mod.json > /tmp/native-gui/fabric.mod.json
+          cat /tmp/native-gui/fabric.mod.json
+          echo "=== TOP REGISTRY CANDIDATES ==="
+          sed -n '1,900p' /tmp/native-gui/module-registry-candidates.txt
+          echo "=== KEYBIND CANDIDATES ==="
+          sed -n '1,900p' /tmp/native-gui/keybind-candidates.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: original-native-gui-analysis
+          path: /tmp/native-gui
+          if-no-files-found: error
