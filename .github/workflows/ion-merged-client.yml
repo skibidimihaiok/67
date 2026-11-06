@@ -94,6 +94,9 @@ jobs:
               "PlayerEspModule.java",
               "TracersModule.java",
               "CombatFeatureModule.java",
+              "AuraModule.java",
+              "ElytraTargetModule.java",
+              "ElytraMaceTargetModule.java",
           }
           excluded_core = {
               "ClientModule.java", "ModuleManager.java", "ModuleKeybinds.java",
