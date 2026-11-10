@@ -70,19 +70,8 @@ jobs:
               raise SystemExit("The 1.21.11 base source has no ModuleManager.java")
           text = manager.read_text(encoding="utf-8")
 
-          # The nested helper project must not create competing copies of the
-          # excluded base-client PvP/ESP modules. The original outer 1.21.11 JAR
-          # remains untouched and remains the source for those features.
-          removed_base = []
-          for cls in ("PlayerEspModule", "StorageEspModule", "TracersModule",
-                      "KillAuraModule", "MaceModule", "AutoMaceModule"):
-              marker = f"MODULES.add(new {cls}());"
-              lines = text.splitlines(keepends=True)
-              kept = [line for line in lines if line.strip() != marker]
-              if len(kept) != len(lines):
-                  removed_base.append(cls)
-                  text = "".join(kept)
-          manager.write_text(text, encoding="utf-8")
+          # Keep every module already registered by the selected 1.21.11 base.
+          # Only import non-duplicate ION modules into this same registry.
 
           # These are deliberately not imported from ION. The base client's own
           # PvP/ESP implementations remain authoritative.
@@ -97,6 +86,7 @@ jobs:
               "AuraModule.java",
               "ElytraTargetModule.java",
               "ElytraMaceTargetModule.java",
+              "TriggerBotModule.java",
           }
           excluded_core = {
               "ClientModule.java", "ModuleManager.java", "ModuleKeybinds.java",
@@ -291,11 +281,29 @@ jobs:
           # Do not replace the existing GUI, settings screen, config manager,
           # or keybind layer. The base manager's dynamic module iteration makes
           # each new module appear in the same GUI/settings/keybind system.
+          forbidden_ion = {"KillAuraModule", "MaceModule", "AutoMaceModule",
+                           "ElytraMaceTargetModule", "TriggerBotModule", "StorageEspModule"}
+          leaked = sorted(forbidden_ion.intersection(added_modules))
+          if leaked:
+              raise SystemExit("Forbidden ION modules were selected: " + ", ".join(leaked))
+          storage_registration = len(re.findall(r"MODULES\\.add\\(new StorageEspModule\\(\\)\\);", text))
+          if storage_registration != 1:
+              raise SystemExit(f"Expected one original Storage ESP registration, found {storage_registration}")
+          report = {
+              "added_modules": added_modules,
+              "added_helpers": copied_helpers,
+              "excluded_ion_modules": sorted(excluded),
+              "storage_esp_registrations": storage_registration,
+              "gui": "base ClickGuiScreen",
+              "keybinds": "base Keys and ModuleKeybinds",
+              "settings": "base ModuleSettingsScreen and ModuleManager config",
+          }
+          import json
+          Path("/tmp/ion-module-merge-report.json").write_text(json.dumps(report, indent=2) + "\\n")
           print("Added modules:", ", ".join(added_modules))
           print("Added helper sources:", ", ".join(copied_helpers))
           print("Excluded ION modules:", ", ".join(sorted(excluded)))
-          print("Removed helper-project duplicates:", ", ".join(removed_base))
-          print("Existing GUI and keybind sources left unchanged.")
+          print("Preserved original base modules, GUI, settings, config and keybind code.")
           PY
 
       - name: Build the merged 1.21.11 client source
@@ -311,114 +319,93 @@ jobs:
           test -n "$JAR"
           cp "$JAR" "$GITHUB_WORKSPACE/dist/ion-client-modules-1.21.11.jar"
 
-      - name: Verify and package everything inside the exact released 1.21.11 JAR
+      - name: Finalize and verify one standalone ION Client JAR
         shell: bash
         run: |
           set -euo pipefail
-          curl -fL --retry 3 --retry-delay 2 -o /tmp/original-1.21.11.jar "https://github.com/skibidimihaiok/67/releases/download/Anubis/1.21.11.jar"
-          echo "90af3f4a2c85e2abf84f47e7d7390ee5203c6ded80b42c3c63083c3133c234e0  /tmp/original-1.21.11.jar" | sha256sum -c -
           python3 - <<'PY'
           import json, zipfile
           from pathlib import Path
 
-          original = Path("/tmp/original-1.21.11.jar")
-          addon = Path("dist/ion-client-modules-1.21.11.jar")
+          built = Path("dist/ion-client-modules-1.21.11.jar")
           output = Path("dist/ION-CLIENT-1.21.11-MERGED.jar")
-          nested = "META-INF/jars/ion-client-modules-1.21.11.jar"
+          report_path = Path("/tmp/ion-module-merge-report.json")
+          report = json.loads(report_path.read_text())
 
-          with zipfile.ZipFile(original) as base, zipfile.ZipFile(addon) as built:
-              if base.testzip() or built.testzip():
-                  raise SystemExit("A source JAR failed ZIP integrity validation.")
-              base_meta = json.loads(base.read("fabric.mod.json"))
-              inner_meta = json.loads(built.read("fabric.mod.json"))
-              if inner_meta.get("id") == base_meta.get("id"):
-                  raise SystemExit("Nested client mod ID collides with the original base mod ID.")
-              jars = list(base_meta.get("jars", []))
-              jars = [entry for entry in jars if entry.get("file") != nested]
-              jars.append({"file": nested})
-              base_meta["jars"] = jars
+          forbidden = {
+              "KillAuraModule", "MaceModule", "AutoMaceModule",
+              "ElytraMaceTargetModule", "TriggerBotModule", "StorageEspModule"
+          }
+          added = set(report["added_modules"])
+          leaked = sorted(forbidden & added)
+          if leaked:
+              raise SystemExit("Forbidden ION modules were added: " + ", ".join(leaked))
+          if report.get("storage_esp_registrations") != 1:
+              raise SystemExit("The original Storage ESP registration is not unique.")
 
-              # Fabric Mixin config names are global to the launch. The original
-              # Dynamic FPS mod can be installed next to this renamed outer mod,
-              # so give the outer mod's configs and refmaps unique resource names.
-              original_resources = set()
-              renamed_resources = {}
-              mixin_entries = base_meta.get("mixins", [])
-              if not isinstance(mixin_entries, list):
-                  raise SystemExit("Unexpected Fabric mixins metadata format.")
-              for index, entry in enumerate(mixin_entries):
-                  config_name = entry if isinstance(entry, str) else (
-                      entry.get("config") if isinstance(entry, dict) else None
-                  )
-                  if not isinstance(config_name, str):
-                      continue
-                  if config_name not in base.namelist():
-                      raise SystemExit(f"Declared Mixin config is missing: {config_name}")
-                  config = json.loads(base.read(config_name))
-                  old_refmap = config.get("refmap")
-                  if isinstance(old_refmap, str) and old_refmap in base.namelist():
-                      new_refmap = f"ion-client-base-{index}-refmap.json"
-                      config["refmap"] = new_refmap
-                      renamed_resources[new_refmap] = (
-                          json.dumps(config_refmap := json.loads(base.read(old_refmap)),
-                                     ensure_ascii=False, separators=(",", ":")) + chr(10)
-                      ).encode()
-                      original_resources.add(old_refmap)
-                  new_config = f"ion-client-base-{index}.mixins.json"
-                  renamed_resources[new_config] = (
-                      json.dumps(config, indent=2, ensure_ascii=False) + chr(10)
-                  ).encode()
-                  original_resources.add(config_name)
-                  if isinstance(entry, str):
-                      mixin_entries[index] = new_config
-                  else:
-                      entry["config"] = new_config
-              base_meta["mixins"] = mixin_entries
-              print("Renamed outer Mixin configs:", ", ".join(
-                  entry if isinstance(entry, str) else entry.get("config", "")
-                  for entry in mixin_entries if isinstance(entry, (str, dict))
-              ))
+          icon_path = "assets/skbiditoilet/icon.png"
+          with zipfile.ZipFile(built, "r") as source:
+              if source.testzip() is not None:
+                  raise SystemExit("The compiled source JAR is damaged.")
+              names = source.namelist()
+              if names.count("fabric.mod.json") != 1:
+                  raise SystemExit("Expected exactly one Fabric mod descriptor.")
+              meta = json.loads(source.read("fabric.mod.json"))
+              if meta.get("id") != "suschunkfinder":
+                  raise SystemExit(f"Unexpected base mod ID: {meta.get('id')!r}")
+              if meta.get("jars"):
+                  raise SystemExit("The built project already contains nested Fabric mods.")
+              required = [
+                  "com/suschunkfinder/ClickGuiScreen.class",
+                  "com/suschunkfinder/ModuleSettingsScreen.class",
+                  "com/suschunkfinder/ModuleManager.class",
+                  "com/suschunkfinder/Keys.class",
+                  "com/suschunkfinder/ModuleKeybinds.class",
+                  "com/suschunkfinder/StorageEspModule.class",
+              ]
+              missing = [entry for entry in required if entry not in names]
+              if missing:
+                  raise SystemExit("Missing original GUI/module classes: " + ", ".join(missing))
+              if icon_path not in names:
+                  raise SystemExit(f"Base client icon is missing: {icon_path}")
 
-              # Keep the original mod ID and original classes/mixins intact.
-              base_meta["name"] = "ION Client"
-              icon_path = "assets/skbiditoilet/icon.png"
-              icon_bytes = built.read(icon_path)
-              base_meta["icon"] = icon_path
-              meta_bytes = (json.dumps(base_meta, indent=2, ensure_ascii=False) + chr(10)).encode()
+              meta["name"] = "ION CLIENT"
+              meta["icon"] = icon_path
+              meta["description"] = "ION Client for Minecraft 1.21.11"
+              # Keep the existing mod ID so prior module config and key mappings
+              # remain associated with the same client installation.
+              meta_bytes = (json.dumps(meta, indent=2, ensure_ascii=False) + "\\n").encode("utf-8")
 
-              with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as merged:
-                  for info in base.infolist():
-                      if info.filename in ("fabric.mod.json", icon_path) or info.filename in original_resources:
+              with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as target:
+                  for info in source.infolist():
+                      if info.filename == "fabric.mod.json":
                           continue
-                      merged.writestr(info, base.read(info.filename))
-                  merged.writestr("fabric.mod.json", meta_bytes)
-                  merged.writestr(icon_path, icon_bytes)
-                  for resource_name, resource_bytes in renamed_resources.items():
-                      merged.writestr(resource_name, resource_bytes)
-                  merged.writestr(nested, addon.read_bytes())
+                      target.writestr(info, source.read(info.filename))
+                  target.writestr("fabric.mod.json", meta_bytes)
 
-          with zipfile.ZipFile(output) as check:
-              if check.testzip():
-                  raise SystemExit("Merged client failed ZIP integrity validation.")
+          with zipfile.ZipFile(output, "r") as check:
+              if check.testzip() is not None:
+                  raise SystemExit("Final ION Client JAR failed ZIP integrity validation.")
+              entries = check.namelist()
               meta = json.loads(check.read("fabric.mod.json"))
-              assert meta.get("id") == "reborn-dynamic-fps", meta.get("id")
-              assert meta.get("icon") == "assets/skbiditoilet/icon.png"
-              assert check.read("assets/skbiditoilet/icon.png")
-              assert any(entry.get("file") == nested for entry in meta.get("jars", []))
-              embedded = check.read(nested)
-              with open("/tmp/embedded-ion.jar", "wb") as f:
-                  f.write(embedded)
-          with zipfile.ZipFile("/tmp/embedded-ion.jar") as check:
-              if check.testzip():
-                  raise SystemExit("Embedded ION client failed ZIP integrity validation.")
-              inner = json.loads(check.read("fabric.mod.json"))
-              assert inner.get("depends", {}).get("minecraft"), inner
-              classes = [n for n in check.namelist() if n.endswith(".class")]
-              if len(classes) < 30:
-                  raise SystemExit(f"Embedded client contains too few classes: {len(classes)}")
-              print("Embedded mod:", inner.get("name"), inner.get("id"))
-              print("Embedded classes:", len(classes))
+              if len([x for x in entries if x.endswith("fabric.mod.json")]) != 1:
+                  raise SystemExit("Final JAR contains more than one mod descriptor.")
+              if meta.get("id") != "suschunkfinder" or meta.get("name") != "ION CLIENT":
+                  raise SystemExit("Final mod metadata is not the expected single ION client.")
+              if meta.get("jars"):
+                  raise SystemExit("Final JAR must not embed a second mod or GUI.")
+              if any(x.startswith("META-INF/jars/") and x.endswith(".jar") for x in entries):
+                  raise SystemExit("Final JAR contains an embedded second mod.")
+              if entries.count("com/suschunkfinder/StorageEspModule.class") != 1:
+                  raise SystemExit("Expected exactly one Storage ESP implementation.")
+              print("Standalone mod:", meta["name"], "| ID:", meta["id"])
+              print("Base GUI/settings/keybind classes are present.")
+              print("Storage ESP remains the single original base implementation.")
+              print("Forbidden ION modules were not added:", ", ".join(sorted(forbidden)))
+              print("ION modules merged:", len(report["added_modules"]))
+              print("Total classes:", sum(x.endswith(".class") for x in entries))
           print("Created:", output)
+          print("Merge report:", report)
           PY
           sha256sum dist/ION-CLIENT-1.21.11-MERGED.jar
 
