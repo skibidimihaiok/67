@@ -87,7 +87,7 @@ jobs:
           set -euo pipefail
           python3 - "$BASE" "$ION_JAVA" "$GITHUB_WORKSPACE/ion-client-overrides/src/main/java/com/suschunkfinder" <<'PY'
           from pathlib import Path
-          import re, shutil, sys
+          import json, re, shutil, sys
 
           base = Path(sys.argv[1])
           ion = Path(sys.argv[2])
@@ -233,6 +233,15 @@ jobs:
               raise SystemExit("The old saved GUI key mapping was not fully replaced.")
           keys_file.write_text(keys_text, encoding="utf-8")
 
+          # Update the Controls-menu label for the new key identifier.
+          lang_file = base / "src/main/resources/assets/skbiditoilet/suschunkfinder/lang/en_us.json"
+          if lang_file.is_file():
+              lang_data = json.loads(lang_file.read_text(encoding="utf-8"))
+              lang_data.pop("key.suschunkfinder.open_gui", None)
+              lang_data["key.ionclient.open_gui"] = "Open ION Client GUI"
+              lang_data["key.category.suschunkfinder.main"] = "ION Client"
+              lang_file.write_text(json.dumps(lang_data, indent=2, ensure_ascii=False) + "\\n", encoding="utf-8")
+
           for action_name in ("AttributeSwapModule.java", "AutoWitherModule.java", "AutoPearlCatchModule.java"):
               action_file = target / action_name
               if action_file.exists():
@@ -369,7 +378,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import json, zipfile
+          import json, zipfile, subprocess
           from pathlib import Path
 
           built = Path("dist/ion-client-modules-1.21.11.jar")
@@ -413,6 +422,15 @@ jobs:
                   raise SystemExit("Missing original GUI/module classes: " + ", ".join(missing))
               if icon_path not in names:
                   raise SystemExit(f"Base client icon is missing: {icon_path}")
+              # Verify the compiled key class rather than trusting the source edit.
+              key_check = subprocess.run(
+                  ["javap", "-classpath", str(built), "-c", "-p", "com.suschunkfinder.Keys"],
+                  check=True, capture_output=True, text=True
+              ).stdout
+              if "key.ionclient.open_gui" not in key_check or "sipush        340" not in key_check:
+                  raise SystemExit("Compiled GUI key is not the fresh Left Shift mapping.")
+              if "key.suschunkfinder.open_gui" in key_check or "sipush         85" in key_check:
+                  raise SystemExit("Compiled GUI key still contains the old saved U mapping.")
               if names.count("com/suschunkfinder/ClickGuiScreen.class") != 1:
                   raise SystemExit("Expected exactly one original 1.21.11 GUI implementation.")
               if names.count("com/suschunkfinder/Keys.class") != 1 or names.count("com/suschunkfinder/ModuleKeybinds.class") != 1:
