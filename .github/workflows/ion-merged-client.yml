@@ -519,14 +519,14 @@ jobs:
               minecraft_dep = base_meta.get("depends", {}).get("minecraft", "")
               if "1.21.11" not in minecraft_dep:
                   raise SystemExit(f"Original base JAR is not marked for Minecraft 1.21.11: {minecraft_dep!r}")
-              required_core = {
+              required_base_core = {
                   "com/suschunkfinder/ClickGuiScreen.class",
                   "com/suschunkfinder/ModuleSettingsScreen.class",
                   "com/suschunkfinder/ModuleManager.class",
                   "com/suschunkfinder/Keys.class",
-                  "com/suschunkfinder/ModuleKeybinds.class",
               }
-              missing_core = sorted(required_core - base_names)
+              required_core = required_base_core | {"com/suschunkfinder/ModuleKeybinds.class"}
+              missing_core = sorted(required_base_core - base_names)
               if missing_core:
                   raise SystemExit("Original 1.21.11 JAR is missing core client classes: " + ", ".join(missing_core))
 
