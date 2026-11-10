@@ -240,7 +240,7 @@ jobs:
               lang_data.pop("key.suschunkfinder.open_gui", None)
               lang_data["key.ionclient.open_gui"] = "Open ION Client GUI"
               lang_data["key.category.suschunkfinder.main"] = "ION Client"
-              lang_file.write_text(json.dumps(lang_data, indent=2, ensure_ascii=False) + "\\n", encoding="utf-8")
+              lang_file.write_text(json.dumps(lang_data, indent=2, ensure_ascii=False), encoding="utf-8")
 
           for action_name in ("AttributeSwapModule.java", "AutoWitherModule.java", "AutoPearlCatchModule.java"):
               action_file = target / action_name
@@ -422,6 +422,10 @@ jobs:
                   raise SystemExit("Missing original GUI/module classes: " + ", ".join(missing))
               if icon_path not in names:
                   raise SystemExit(f"Base client icon is missing: {icon_path}")
+              language_path = "assets/skbiditoilet/suschunkfinder/lang/en_us.json"
+              language = json.loads(source.read(language_path))
+              if language.get("key.ionclient.open_gui") != "Open ION Client GUI":
+                  raise SystemExit("The new ION GUI key has no valid Controls-menu label.")
               # Verify the compiled key class rather than trusting the source edit.
               key_check = subprocess.run(
                   ["javap", "-classpath", str(built), "-c", "-p", "com.suschunkfinder.Keys"],
