@@ -233,7 +233,6 @@ jobs:
               raise SystemExit("The old saved GUI key mapping was not fully replaced.")
           keys_file.write_text(keys_text, encoding="utf-8")
 
-          # Update the Controls-menu label for the new key identifier.
           # Apply the 1.0.0 visual treatment inside the original 1.21.11
           # ClickGuiScreen. Input handling, settings navigation, and class identity
           # remain the base client's own implementation.
@@ -506,10 +505,6 @@ jobs:
                   raise SystemExit("Missing original GUI/module classes: " + ", ".join(missing))
               if icon_path not in names:
                   raise SystemExit(f"Base client icon is missing: {icon_path}")
-              language_path = "assets/skbiditoilet/suschunkfinder/lang/en_us.json"
-              language = json.loads(source.read(language_path))
-              if language.get("key.ionclient.open_gui") != "Open ION Client GUI":
-                  raise SystemExit("The new ION GUI key has no valid Controls-menu label.")
               # Verify the compiled key class rather than trusting the source edit.
               key_check = subprocess.run(
                   ["javap", "-classpath", str(built), "-c", "-p", "com.suschunkfinder.Keys"],
@@ -533,10 +528,18 @@ jobs:
               meta_bytes = (json.dumps(meta, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
 
               with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as target:
+                  language_path = "assets/skbiditoilet/suschunkfinder/lang/en_us.json"
                   for info in source.infolist():
                       if info.filename == "fabric.mod.json":
                           continue
-                      target.writestr(info, source.read(info.filename))
+                      if info.filename == language_path:
+                          language = json.loads(source.read(language_path))
+                          language.pop("key.suschunkfinder.open_gui", None)
+                          language["key.ionclient.open_gui"] = "Open ION Client GUI"
+                          language["key.category.suschunkfinder.main"] = "ION Client"
+                          target.writestr(info, (json.dumps(language, indent=2, ensure_ascii=False) + "\n").encode("utf-8"))
+                      else:
+                          target.writestr(info, source.read(info.filename))
                   target.writestr("fabric.mod.json", meta_bytes)
 
           with zipfile.ZipFile(output, "r") as check:
@@ -550,6 +553,9 @@ jobs:
                   raise SystemExit("Final mod metadata is not the expected single ION client.")
               if meta.get("jars"):
                   raise SystemExit("Final JAR must not embed a second mod or GUI.")
+              language = json.loads(check.read("assets/skbiditoilet/suschunkfinder/lang/en_us.json"))
+              if language.get("key.ionclient.open_gui") != "Open ION Client GUI":
+                  raise SystemExit("Final Controls-menu language entry is invalid or missing.")
               if any(x.startswith("META-INF/jars/") and x.endswith(".jar") for x in entries):
                   raise SystemExit("Final JAR contains an embedded second mod.")
               if entries.count("com/suschunkfinder/StorageEspModule.class") != 1:
