@@ -313,8 +313,7 @@ jobs:
           \t\tg.drawString(this.font, line, this.width / 2 - this.font.width(line) / 2, this.height - 16, 0xFFB0B8C8, true);
           \t}
           '''
-          import textwrap
-          gui_render = textwrap.dedent(gui_render).strip("\n")
+          gui_render = gui_render.strip("\n")
           gui_text, gui_replaced = re.subn(
               r"(?s)\t@Override\n\tpublic void render\(GuiGraphics g, int mouseX, int mouseY, float delta\) \{.*?\n\t\}",
               lambda match: gui_render,
