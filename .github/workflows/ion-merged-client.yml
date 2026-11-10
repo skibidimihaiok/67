@@ -241,7 +241,7 @@ jobs:
           gui_text = gui_file.read_text(encoding="utf-8")
           gui_text = gui_text.replace("private static final int TOP = 14;", "private static final int TOP = 28;", 1)
           gui_text = gui_text.replace('super(Component.literal("Sus Client"));', 'super(Component.literal("ION CLIENT"));', 1)
-          gui_render = r'''
+          gui_render = '''
           \t@Override
           \tpublic void render(GuiGraphics g, int mouseX, int mouseY, float delta) {
           \t\tint accent = Hud.accent();
@@ -314,9 +314,9 @@ jobs:
           \t}
           '''
           import textwrap
-          gui_render = textwrap.dedent(gui_render).strip("\\n")
+          gui_render = textwrap.dedent(gui_render).strip("\n")
           gui_text, gui_replaced = re.subn(
-              r"(?s)\\t@Override\\n\\tpublic void render\\(GuiGraphics g, int mouseX, int mouseY, float delta\\) \\{.*?\\n\\t\\}",
+              r"(?s)\t@Override\n\tpublic void render\(GuiGraphics g, int mouseX, int mouseY, float delta\) \{.*?\n\t\}",
               lambda match: gui_render,
               gui_text,
               count=1
