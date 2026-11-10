@@ -223,10 +223,14 @@ jobs:
           keys_text = keys_file.read_text(encoding="utf-8")
           if "GLFW.GLFW_KEY_U" not in keys_text and "GLFW.GLFW_KEY_LEFT_SHIFT" not in keys_text:
               raise SystemExit("Could not find the original GUI key mapping in Keys.java.")
+          # Give the GUI mapping a new translation key as well as a new
+          # default key. Minecraft persists old KeyMapping assignments in
+          # options.txt; keeping the old ID would preserve a previously saved U.
+          keys_text = keys_text.replace("key.suschunkfinder.open_gui", "key.ionclient.open_gui", 1)
           keys_text = keys_text.replace("GLFW.GLFW_KEY_U", "GLFW.GLFW_KEY_LEFT_SHIFT", 1)
           keys_text = keys_text.replace("The U key opens the client menu.", "Left Shift opens the client menu.")
-          if "GLFW.GLFW_KEY_U" in keys_text:
-              raise SystemExit("The old U GUI mapping was not fully replaced.")
+          if "key.suschunkfinder.open_gui" in keys_text or "GLFW.GLFW_KEY_U" in keys_text:
+              raise SystemExit("The old saved GUI key mapping was not fully replaced.")
           keys_file.write_text(keys_text, encoding="utf-8")
 
           for action_name in ("AttributeSwapModule.java", "AutoWitherModule.java", "AutoPearlCatchModule.java"):
