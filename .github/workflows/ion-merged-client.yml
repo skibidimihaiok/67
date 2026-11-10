@@ -4,7 +4,8 @@ on:
   push:
     branches: [ion-client-development]
     paths:
-      - 'ION-CLIENT-visuals-experimental.zip'
+      - 'ION-CLIENT-visuals-experimental.zip' # wrapper only
+      - 'ion-client-1.0.0.jar'
       - 'skbiditoilet-fixed (1).zip'
       - 'ion-client-overrides/src/main/java/**'
       - '.github/ION_BUILD_NOW.txt'
@@ -27,30 +28,56 @@ jobs:
           distribution: temurin
           java-version: '25'
 
+      - name: Decompile the supplied ION 1.0.0 reference JAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL https://repo1.maven.org/maven2/org/benf/cfr/0.152/cfr-0.152.jar -o /tmp/cfr.jar
+          mkdir -p /tmp/ion-decompiled
+          java -Xmx3G -jar /tmp/cfr.jar ion-client-1.0.0.jar --outputdir /tmp/ion-decompiled --silent true
+          echo "=== REFERENCE JAR METADATA ==="
+          unzip -p ion-client-1.0.0.jar fabric.mod.json || true
+          echo "=== DECOMPILED REFERENCE JAVA FILES ==="
+          find /tmp/ion-decompiled -type f -name '*.java' | sort | sed -n '1,240p'
+          for name in ClickGuiScreen.java Keys.java ModuleKeybinds.java ModuleManager.java; do
+            file="$(find /tmp/ion-decompiled -type f -name "$name" -print -quit)"
+            if [ -n "$file" ]; then
+              echo "=== REFERENCE $name: $file ==="
+              sed -n '1,220p' "$file"
+            fi
+          done
+
       - name: Prepare the original 1.21.11 source GUI and ION module sources
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p /tmp/base-source /tmp/ion-source
+          mkdir -p /tmp/base-source /tmp/ion-wrapper
           unzip -q "skbiditoilet-fixed (1).zip" -d /tmp/base-source
-          unzip -q "ION-CLIENT-visuals-experimental.zip" -d /tmp/ion-source
-          BASE="$(find /tmp/base-source -type f -name build.gradle -printf '%h\n' | head -1)"
-          ION_ROOT="$(find /tmp/ion-source -type f -name gradlew -printf '%h\n' | head -1)"
-          ION_JAVA="$(find /tmp/ion-source -path '*/src/main/java/com/suschunkfinder/ModuleManager.java' -printf '%h\n' | head -1)"
+          # The old ZIP is used only for a matching Gradle wrapper. All module
+          # Java is recovered from the newer, user-supplied 1.0.0 JAR.
+          unzip -q "ION-CLIENT-visuals-experimental.zip" -d /tmp/ion-wrapper
+          BASE="$(find /tmp/base-source -type f -name build.gradle -printf '%h\\n' | head -1)"
+          ION_ROOT="$(find /tmp/ion-wrapper -type f -name gradlew -printf '%h\\n' | head -1)"
+          ION_JAVA="$(find /tmp/ion-decompiled -path '*/com/suschunkfinder/ModuleManager.java' -printf '%h\\n' | head -1)"
           test -n "$BASE" && test -n "$ION_ROOT" && test -n "$ION_JAVA"
           echo "BASE=$BASE" >> "$GITHUB_ENV"
           echo "ION_ROOT=$ION_ROOT" >> "$GITHUB_ENV"
           echo "ION_JAVA=$ION_JAVA" >> "$GITHUB_ENV"
-          # Reuse the checked-in wrapper from the matching 1.21.11 ION project.
+          # Only build tooling is borrowed from the old ZIP; its Java source is
+          # deliberately not used.
           cp "$ION_ROOT/gradlew" "$BASE/gradlew"
           cp -R "$ION_ROOT/gradle" "$BASE/gradle"
           chmod +x "$BASE/gradlew"
-          echo "Base GUI: $BASE"
-          echo "ION source: $ION_JAVA"
-          echo "=== BASE ESP BATCH API ==="
-          sed -n '1,260p' "$BASE/src/main/java/com/suschunkfinder/EspBatch.java"
-          echo "=== BASE ESP RENDERER API ==="
-          sed -n '1,300p' "$BASE/src/main/java/com/suschunkfinder/EspRenderer.java"
+          echo "Base GUI retained from Minecraft 1.21.11 project: $BASE"
+          echo "ION modules recovered from ion-client-1.0.0.jar: $ION_JAVA"
+          echo "=== BASE GUI AND KEYBIND CORE (unchanged source) ==="
+          for name in ClickGuiScreen.java ModuleSettingsScreen.java Keys.java ModuleKeybinds.java ModuleManager.java; do
+            file="$BASE/src/main/java/com/suschunkfinder/$name"
+            if [ -f "$file" ]; then
+              echo "=== BASE $name ==="
+              sed -n '1,260p' "$file"
+            fi
+          done
           echo "=== BASE COORDINATES MODULE ==="
           sed -n '1,120p' "$BASE/src/main/java/com/suschunkfinder/CoordinatesHudModule.java"
 
