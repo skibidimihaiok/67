@@ -56,9 +56,9 @@ jobs:
           # The old ZIP is used only for a matching Gradle wrapper. All module
           # Java is recovered from the newer, user-supplied 1.0.0 JAR.
           unzip -q "ION-CLIENT-visuals-experimental.zip" -d /tmp/ion-wrapper
-          BASE="$(find /tmp/base-source -type f -name build.gradle -printf '%h\\n' | head -1)"
-          ION_ROOT="$(find /tmp/ion-wrapper -type f -name gradlew -printf '%h\\n' | head -1)"
-          ION_JAVA="$(find /tmp/ion-decompiled -path '*/com/suschunkfinder/ModuleManager.java' -printf '%h\\n' | head -1)"
+          BASE="$(dirname "$(find /tmp/base-source -type f -name build.gradle -print -quit)")"
+          ION_ROOT="$(dirname "$(find /tmp/ion-wrapper -type f -name gradlew -print -quit)")"
+          ION_JAVA="$(dirname "$(find /tmp/ion-decompiled -path '*/com/suschunkfinder/ModuleManager.java' -print -quit)")"
           test -n "$BASE" && test -n "$ION_ROOT" && test -n "$ION_JAVA"
           echo "BASE=$BASE" >> "$GITHUB_ENV"
           echo "ION_ROOT=$ION_ROOT" >> "$GITHUB_ENV"
