@@ -557,6 +557,20 @@ jobs:
               metadata_bytes = (json.dumps(final_meta, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
               merged["fabric.mod.json"] = (None, metadata_bytes)
 
+              # Update the controls-menu translation in the merged resources,
+              # preserving every other key from the original language file.
+              language_path = "assets/skbiditoilet/suschunkfinder/lang/en_us.json"
+              if language_path in merged:
+                  language_info, language_bytes = merged[language_path]
+                  language = json.loads(language_bytes)
+                  language.pop("key.suschunkfinder.open_gui", None)
+                  language["key.ionclient.open_gui"] = "Open ION Client GUI"
+                  language["key.category.suschunkfinder.main"] = "ION Client"
+                  merged[language_path] = (
+                      language_info,
+                      (json.dumps(language, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
+                  )
+
               removed_entries = sorted(name for name in merged if is_removed_module_class(name))
               for name in removed_entries:
                   del merged[name]
