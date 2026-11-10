@@ -7,6 +7,7 @@ on:
       - 'ION-CLIENT-visuals-experimental.zip' # wrapper only
       - 'ion-client-1.0.0.jar'
       - 'skbiditoilet-fixed (1).zip'
+      - 'skbiditoilet-1.0.0.jar'
       - 'ion-client-overrides/src/main/java/**'
       - '.github/ION_BUILD_NOW.txt'
       - '.github/workflows/ion-merged-client.yml'
@@ -124,6 +125,14 @@ jobs:
               "IonModuleProvider.java",
           }
 
+          def is_user_removed_module(class_name):
+              folded = class_name.casefold()
+              return (
+                  folded in {"playerespmodule", "storageespmodule", "killa uramodule".replace(" ", ""),
+                             "triggerbotmodule"}
+                  or ("mace" in folded and folded.endswith("module"))
+              )
+
           existing_files = {p.name for p in target.glob("*.java")}
           existing_classes = set(re.findall(r"new\s+([A-Za-z_$][\w$]*)\s*\(", text))
           registered = set(existing_classes)
@@ -146,7 +155,7 @@ jobs:
               if not root.exists():
                   continue
               for path in root.rglob("*.java"):
-                  if path.name in excluded or path.name in excluded_core:
+                  if path.name in excluded or path.name in excluded_core or is_user_removed_module(path.stem):
                       continue
                   if path.name in existing_files:
                       continue
@@ -193,6 +202,20 @@ jobs:
 
           registrations = "".join(f"\t\tMODULES.add(new {cls}());\n" for cls in added_modules)
           text = text[:at] + registrations + text[at:]
+
+          # Remove exactly the modules the user asked to exclude from the
+          # original 1.21.11 registry; all other base modules stay untouched.
+          removed_base_modules = []
+          for source_file in sorted(target.glob("*Module.java")):
+              class_name = source_file.stem
+              if not is_user_removed_module(class_name):
+                  continue
+              pattern = r"(?m)^[ \t]*MODULES\.add\(new\s+" + re.escape(class_name) + r"\(\)\);[ \t]*\n?"
+              text, removed_count = re.subn(pattern, "", text)
+              if removed_count:
+                  removed_base_modules.append(class_name)
+                  source_file.unlink()
+
           manager.write_text(text, encoding="utf-8")
 
           # Support ION one-shot action modules within the original keybind layer.
@@ -422,14 +445,17 @@ jobs:
           leaked = sorted(forbidden_ion.intersection(added_modules))
           if leaked:
               raise SystemExit("Forbidden ION modules were selected: " + ", ".join(leaked))
-          storage_registration = len(re.findall(r"MODULES\.add\(new StorageEspModule\(\)\);", text))
-          if storage_registration != 1:
-              raise SystemExit(f"Expected one original Storage ESP registration, found {storage_registration}")
+          forbidden_source_names = {"PlayerEspModule", "StorageEspModule", "KillAuraModule", "TriggerBotModule"}
+          forbidden_registered = sorted(name for name in forbidden_source_names if re.search(
+              r"new\s+" + re.escape(name) + r"\s*\(", text
+          ))
+          if forbidden_registered:
+              raise SystemExit("User-excluded modules are still registered: " + ", ".join(forbidden_registered))
           report = {
               "added_modules": added_modules,
               "added_helpers": copied_helpers,
+              "removed_base_modules": removed_base_modules,
               "excluded_ion_modules": sorted(excluded),
-              "storage_esp_registrations": storage_registration,
               "gui": "original 1.21.11 ClickGuiScreen with ION 1.0.0 visual treatment",
               "keybinds": "base Keys and ModuleKeybinds (Left Shift opens the original GUI)",
               "open_gui_default": "LEFT_SHIFT",
@@ -456,118 +482,145 @@ jobs:
           test -n "$JAR"
           cp "$JAR" "$GITHUB_WORKSPACE/dist/ion-client-modules-1.21.11.jar"
 
-      - name: Finalize and verify one standalone ION Client JAR
+      - name: Merge compiled updates into the complete original 1.21.11 JAR
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import json, zipfile, subprocess
+          import json, re, zipfile, subprocess
           from pathlib import Path
 
-          built = Path("dist/ion-client-modules-1.21.11.jar")
+          base_path = Path("skbiditoilet-1.0.0.jar")
+          built_path = Path("dist/ion-client-modules-1.21.11.jar")
           output = Path("dist/ION-CLIENT-1.21.11-MERGED.jar")
-          report_path = Path("/tmp/ion-module-merge-report.json")
-          report = json.loads(report_path.read_text())
+          report = json.loads(Path("/tmp/ion-module-merge-report.json").read_text())
 
-          forbidden = {
-              "KillAuraModule", "MaceModule", "AutoMaceModule",
-              "ElytraMaceTargetModule", "TriggerBotModule", "StorageEspModule"
-          }
-          added = set(report["added_modules"])
-          leaked = sorted(forbidden & added)
-          if leaked:
-              raise SystemExit("Forbidden ION modules were added: " + ", ".join(leaked))
-          if report.get("storage_esp_registrations") != 1:
-              raise SystemExit("The original Storage ESP registration is not unique.")
+          def is_removed_module_class(entry):
+              if not entry.startswith("com/suschunkfinder/") or not entry.endswith(".class"):
+                  return False
+              simple = entry.rsplit("/", 1)[-1].split("$", 1)[0][:-6].casefold()
+              return (
+                  simple in {"playerespmodule", "storageespmodule", "killa uramodule".replace(" ", ""),
+                             "triggerbotmodule"}
+                  or ("mace" in simple and simple.endswith("module"))
+              )
 
-          icon_path = "assets/skbiditoilet/icon.png"
-          with zipfile.ZipFile(built, "r") as source:
-              if source.testzip() is not None:
-                  raise SystemExit("The compiled source JAR is damaged.")
-              names = source.namelist()
-              if names.count("fabric.mod.json") != 1:
-                  raise SystemExit("Expected exactly one Fabric mod descriptor.")
-              meta = json.loads(source.read("fabric.mod.json"))
-              if meta.get("id") != "suschunkfinder":
-                  raise SystemExit(f"Unexpected base mod ID: {meta.get('id')!r}")
-              if meta.get("jars"):
-                  raise SystemExit("The built project already contains nested Fabric mods.")
-              required = [
+          banned = {"PlayerEspModule", "StorageEspModule", "KillAuraModule", "TriggerBotModule"}
+          with zipfile.ZipFile(base_path, "r") as original, zipfile.ZipFile(built_path, "r") as built:
+              if original.testzip() is not None or built.testzip() is not None:
+                  raise SystemExit("The original or rebuilt JAR failed ZIP integrity validation.")
+
+              base_names = set(original.namelist())
+              base_meta = json.loads(original.read("fabric.mod.json"))
+              json.loads(built.read("fabric.mod.json"))
+
+              if base_meta.get("id") != "suschunkfinder":
+                  raise SystemExit(f"Original base mod ID mismatch: {base_meta.get('id')!r}")
+              minecraft_dep = base_meta.get("depends", {}).get("minecraft", "")
+              if "1.21.11" not in minecraft_dep:
+                  raise SystemExit(f"Original base JAR is not marked for Minecraft 1.21.11: {minecraft_dep!r}")
+              required_core = {
                   "com/suschunkfinder/ClickGuiScreen.class",
                   "com/suschunkfinder/ModuleSettingsScreen.class",
                   "com/suschunkfinder/ModuleManager.class",
                   "com/suschunkfinder/Keys.class",
                   "com/suschunkfinder/ModuleKeybinds.class",
-                  "com/suschunkfinder/StorageEspModule.class",
-              ]
-              missing = [entry for entry in required if entry not in names]
-              if missing:
-                  raise SystemExit("Missing original GUI/module classes: " + ", ".join(missing))
-              if icon_path not in names:
-                  raise SystemExit(f"Base client icon is missing: {icon_path}")
-              # Verify the compiled key class rather than trusting the source edit.
+              }
+              missing_core = sorted(required_core - base_names)
+              if missing_core:
+                  raise SystemExit("Original 1.21.11 JAR is missing core client classes: " + ", ".join(missing_core))
+
+              # Copy every entry from the original client first. This is the
+              # preservation guarantee missing from the previous rebuild.
+              merged = {}
+              for info in original.infolist():
+                  if info.is_dir():
+                      merged[info.filename] = (info, b"")
+                  else:
+                      merged[info.filename] = (info, original.read(info.filename))
+
+              overlay_count = 0
+              for info in built.infolist():
+                  name = info.filename
+                  if info.is_dir() or name == "fabric.mod.json" or name.startswith("META-INF/"):
+                      continue
+                  if name.endswith(".class") or name.startswith(("assets/", "data/")):
+                      merged[name] = (info, built.read(name))
+                      overlay_count += 1
+
+              # Keep original mod ID, dependencies, entrypoints, mixins and other
+              # metadata. Change only the display identity/version.
+              final_meta = dict(base_meta)
+              final_meta["name"] = "ION CLIENT"
+              final_meta["version"] = "1.1.0"
+              final_meta["description"] = "ION Client for Minecraft 1.21.11"
+              metadata_bytes = (json.dumps(final_meta, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
+              merged["fabric.mod.json"] = (None, metadata_bytes)
+
+              removed_entries = sorted(name for name in merged if is_removed_module_class(name))
+              for name in removed_entries:
+                  del merged[name]
+
+              output.parent.mkdir(parents=True, exist_ok=True)
+              with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as result:
+                  for name, (info, data) in merged.items():
+                      if info is None:
+                          result.writestr(name, data)
+                      else:
+                          result.writestr(info, data)
+
+          with zipfile.ZipFile(output, "r") as check:
+              if check.testzip() is not None:
+                  raise SystemExit("Final merged JAR failed ZIP integrity validation.")
+              entries = set(check.namelist())
+              metadata = json.loads(check.read("fabric.mod.json"))
+              if metadata.get("id") != base_meta.get("id") or metadata.get("depends") != base_meta.get("depends"):
+                  raise SystemExit("Original mod identity or dependency metadata was not preserved.")
+              if not required_core.issubset(entries):
+                  raise SystemExit("One or more original GUI/settings/keybind core classes are missing.")
+              if any(is_removed_module_class(name) for name in entries):
+                  raise SystemExit("A user-excluded module class remains in the final JAR.")
+              if not any(name.casefold().endswith("/mobespmodule.class") for name in entries):
+                  raise SystemExit("Mob ESP was unexpectedly removed.")
+
+              retained_base = base_names - set(removed_entries)
+              missing_retained = sorted(retained_base - entries)
+              if missing_retained:
+                  raise SystemExit("Original JAR entries were lost during merge: " + ", ".join(missing_retained[:30]))
+
               key_check = subprocess.run(
-                  ["javap", "-classpath", str(built), "-c", "-p", "com.suschunkfinder.Keys"],
+                  ["javap", "-classpath", str(output), "-c", "-p", "com.suschunkfinder.Keys"],
                   check=True, capture_output=True, text=True
               ).stdout
               if "key.ionclient.open_gui" not in key_check or "sipush        340" not in key_check:
                   raise SystemExit("Compiled GUI key is not the fresh Left Shift mapping.")
               if "key.suschunkfinder.open_gui" in key_check or "sipush         85" in key_check:
                   raise SystemExit("Compiled GUI key still contains the old saved U mapping.")
-              if names.count("com/suschunkfinder/ClickGuiScreen.class") != 1:
-                  raise SystemExit("Expected exactly one original 1.21.11 GUI implementation.")
-              if names.count("com/suschunkfinder/Keys.class") != 1 or names.count("com/suschunkfinder/ModuleKeybinds.class") != 1:
-                  raise SystemExit("Expected exactly one original 1.21.11 keybind system.")
 
-              meta["name"] = "ION CLIENT"
-              meta["version"] = "1.1.0"
-              meta["icon"] = icon_path
-              meta["description"] = "ION Client for Minecraft 1.21.11"
-              # Keep the existing mod ID so prior module config and key mappings
-              # remain associated with the same client installation.
-              meta_bytes = (json.dumps(meta, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
+              manager_check = subprocess.run(
+                  ["javap", "-classpath", str(output), "-c", "-p", "com.suschunkfinder.ModuleManager"],
+                  check=True, capture_output=True, text=True
+              ).stdout
+              lingering = sorted(name for name in banned if name in manager_check)
+              if lingering:
+                  raise SystemExit("Excluded modules remain referenced by ModuleManager: " + ", ".join(lingering))
 
-              with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as target:
-                  language_path = "assets/skbiditoilet/suschunkfinder/lang/en_us.json"
-                  for info in source.infolist():
-                      if info.filename == "fabric.mod.json":
-                          continue
-                      if info.filename == language_path:
-                          language = json.loads(source.read(language_path))
-                          language.pop("key.suschunkfinder.open_gui", None)
-                          language["key.ionclient.open_gui"] = "Open ION Client GUI"
-                          language["key.category.suschunkfinder.main"] = "ION Client"
-                          target.writestr(info, (json.dumps(language, indent=2, ensure_ascii=False) + "\n").encode("utf-8"))
-                      else:
-                          target.writestr(info, source.read(info.filename))
-                  target.writestr("fabric.mod.json", meta_bytes)
+              language_path = "assets/skbiditoilet/suschunkfinder/lang/en_us.json"
+              if language_path in entries:
+                  language = json.loads(check.read(language_path))
+                  if language.get("key.ionclient.open_gui") != "Open ION Client GUI":
+                      raise SystemExit("Final Controls-menu language entry is invalid or missing.")
 
-          with zipfile.ZipFile(output, "r") as check:
-              if check.testzip() is not None:
-                  raise SystemExit("Final ION Client JAR failed ZIP integrity validation.")
-              entries = check.namelist()
-              meta = json.loads(check.read("fabric.mod.json"))
-              if len([x for x in entries if x.endswith("fabric.mod.json")]) != 1:
-                  raise SystemExit("Final JAR contains more than one mod descriptor.")
-              if meta.get("id") != "suschunkfinder" or meta.get("name") != "ION CLIENT":
-                  raise SystemExit("Final mod metadata is not the expected single ION client.")
-              if meta.get("jars"):
-                  raise SystemExit("Final JAR must not embed a second mod or GUI.")
-              language = json.loads(check.read("assets/skbiditoilet/suschunkfinder/lang/en_us.json"))
-              if language.get("key.ionclient.open_gui") != "Open ION Client GUI":
-                  raise SystemExit("Final Controls-menu language entry is invalid or missing.")
-              if any(x.startswith("META-INF/jars/") and x.endswith(".jar") for x in entries):
-                  raise SystemExit("Final JAR contains an embedded second mod.")
-              if entries.count("com/suschunkfinder/StorageEspModule.class") != 1:
-                  raise SystemExit("Expected exactly one Storage ESP implementation.")
-              print("Standalone mod:", meta["name"], "| ID:", meta["id"])
-              print("Base GUI/settings/keybind classes are present.")
-              print("Storage ESP remains the single original base implementation.")
-              print("Forbidden ION modules were not added:", ", ".join(sorted(forbidden)))
-              print("ION modules merged:", len(report["added_modules"]))
-              print("Total classes:", sum(x.endswith(".class") for x in entries))
-          print("Created:", output)
-          print("Merge report:", report)
+              print("Original base JAR:", base_path.stat().st_size, "bytes")
+              print("Final merged JAR:", output.stat().st_size, "bytes")
+              print("Original entries retained:", len(retained_base), "/", len(base_names), "(excluding explicitly removed module classes)")
+              print("New/replaced compiled entries overlaid:", overlay_count)
+              print("Final class count:", sum(name.endswith(".class") for name in entries))
+              print("Removed excluded module class files:", len(removed_entries))
+              print("Explicitly removed modules from original source registry:", ", ".join(report.get("removed_base_modules", [])) or "(none found in source registry)")
+              print("ION modules added:", len(report["added_modules"]))
+              print("Original GUI, settings, keybinds, mod ID, dependencies and all unrelated JAR entries retained.")
+              print("Created:", output)
           PY
           sha256sum dist/ION-CLIENT-1.21.11-MERGED.jar
 
