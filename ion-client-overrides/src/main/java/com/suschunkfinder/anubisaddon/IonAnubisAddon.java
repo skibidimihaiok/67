@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Locale;
 
 import com.mojang.blaze3d.platform.InputConstants;
-import net.anubis.client.AnubisClientMod;
+import net.minecraft.resources.Identifier;
 import net.anubis.client.addon.AnubisAddon;
 import net.anubis.client.module.ModuleRegistry;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -63,11 +63,14 @@ public final class IonAnubisAddon extends AnubisAddon {
 
         // Anubis's built-in key defaults to Right Shift (key code 344).
         // Give ION a fresh mapping id so stale options.txt values cannot override it.
+        KeyMapping.Category ionControls = KeyMapping.Category.register(
+            Identifier.fromNamespaceAndPath("ionclient", "controls")
+        );
         openIonGuiKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(
             "key.ionclient.open_gui",
             InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_LEFT_SHIFT,
-            AnubisClientMod.KEY_CATEGORY
+            ionControls
         ));
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (openIonGuiKey.consumeClick()) {

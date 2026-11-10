@@ -245,7 +245,7 @@ jobs:
           for forbidden in ("playeresp", "storageesp", "killaura", "triggerbot", "mace"):
               if forbidden not in addon:
                   raise SystemExit("Anubis module removal rule missing for " + forbidden)
-          if '"key.ionclient.open_gui"' not in addon or "GLFW.GLFW_KEY_LEFT_SHIFT" not in addon or "AnubisClientMod.toggleGuiFromKey()" not in addon:
+          if '"key.ionclient.open_gui"' not in addon or "GLFW.GLFW_KEY_LEFT_SHIFT" not in addon or "KeyMapping.Category.register" not in addon or "AnubisClientMod.toggleGuiFromKey()" not in addon:
               raise SystemExit("Anubis native GUI is not wired to the new Left Shift shortcut")
           print("Freecam mixins and requested module-removal rules are configured.")
           PY
