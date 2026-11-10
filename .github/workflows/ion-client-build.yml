@@ -152,7 +152,7 @@ jobs:
                   raise SystemExit("TargetHighlightModule import anchor missing")
               text = text.replace(
                   "import net.minecraft.world.phys.AABB;",
-                  "import net.minecraft.world.phys.AABB;\\nimport net.minecraft.world.phys.Vec3;",
+                  "import net.minecraft.world.phys.AABB;\nimport net.minecraft.world.phys.Vec3;",
                   1
               )
           target.write_text(text)
