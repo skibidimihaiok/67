@@ -91,6 +91,7 @@ if "public static void initForAnubisAddon()" not in text:
     // Names and IDs already implemented by Anubis 0.9.9.1. Keep Anubis' originals authoritative.
     private static final Set<String> ANUBIS_OWNED = Set.of(
         "suschunkfinder",
+        "clickgui",
         "playeresp",
         "mobesp",
         "tracers",
@@ -326,6 +327,7 @@ language = resources / "assets/ionclient/lang/en_us.json"
 language.parent.mkdir(parents=True, exist_ok=True)
 translations = json.loads(language.read_text()) if language.is_file() else {}
 translations["key.ionclient.open_gui"] = "Open ION Client GUI"
+translations["key.categories.ionclient.controls"] = "ION Client"
 language.write_text(json.dumps(translations, indent=2) + "\n")
 
 gradle = Path("ion-client/build.gradle")

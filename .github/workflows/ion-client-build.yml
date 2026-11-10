@@ -232,6 +232,8 @@ jobs:
               raise SystemExit("ION Freecam replacement module is missing")
           if "MODULES.add(new FreecamModule())" not in (root / "ModuleManager.java").read_text():
               raise SystemExit("Freecam is missing from ION's module manager")
+          if '"clickgui"' not in (root / "ModuleManager.java").read_text():
+              raise SystemExit("Legacy ION ClickGUI must be filtered so Anubis remains the only GUI")
           config_path = Path("ion-client/src/main/resources/suschunkfinder.mixins.json")
           if not config_path.is_file():
               raise SystemExit("Freecam mixin configuration was not generated")
