@@ -217,6 +217,18 @@ jobs:
           )
           keybind_file.write_text(keybind_text, encoding="utf-8")
 
+          # Keep the original 1.21.11 ClickGuiScreen, but make Left Shift its
+          # default open key. It remains a normal, user-rebindable Minecraft key.
+          keys_file = target / "Keys.java"
+          keys_text = keys_file.read_text(encoding="utf-8")
+          if "GLFW.GLFW_KEY_U" not in keys_text and "GLFW.GLFW_KEY_LEFT_SHIFT" not in keys_text:
+              raise SystemExit("Could not find the original GUI key mapping in Keys.java.")
+          keys_text = keys_text.replace("GLFW.GLFW_KEY_U", "GLFW.GLFW_KEY_LEFT_SHIFT", 1)
+          keys_text = keys_text.replace("The U key opens the client menu.", "Left Shift opens the client menu.")
+          if "GLFW.GLFW_KEY_U" in keys_text:
+              raise SystemExit("The old U GUI mapping was not fully replaced.")
+          keys_file.write_text(keys_text, encoding="utf-8")
+
           for action_name in ("AttributeSwapModule.java", "AutoWitherModule.java", "AutoPearlCatchModule.java"):
               action_file = target / action_name
               if action_file.exists():
@@ -323,7 +335,8 @@ jobs:
               "excluded_ion_modules": sorted(excluded),
               "storage_esp_registrations": storage_registration,
               "gui": "base ClickGuiScreen",
-              "keybinds": "base Keys and ModuleKeybinds",
+              "keybinds": "base Keys and ModuleKeybinds (Left Shift opens the original GUI)",
+              "open_gui_default": "LEFT_SHIFT",
               "settings": "base ModuleSettingsScreen and ModuleManager config",
           }
           import json
@@ -396,6 +409,10 @@ jobs:
                   raise SystemExit("Missing original GUI/module classes: " + ", ".join(missing))
               if icon_path not in names:
                   raise SystemExit(f"Base client icon is missing: {icon_path}")
+              if names.count("com/suschunkfinder/ClickGuiScreen.class") != 1:
+                  raise SystemExit("Expected exactly one original 1.21.11 GUI implementation.")
+              if names.count("com/suschunkfinder/Keys.class") != 1 or names.count("com/suschunkfinder/ModuleKeybinds.class") != 1:
+                  raise SystemExit("Expected exactly one original 1.21.11 keybind system.")
 
               meta["name"] = "ION CLIENT"
               meta["version"] = "1.1.0"
