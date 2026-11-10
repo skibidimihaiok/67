@@ -25,7 +25,7 @@ public final class FreecamModule extends ClientModule {
     private double smoothX, smoothY, smoothZ;
 
     public FreecamModule() {
-        super("Freecam", "Fly the view camera separately from your player.", Category.MOVEMENT);
+        super("ION Freecam", "Fly the view camera separately from your player.", Category.MOVEMENT);
         speed.onChange(() -> { smoothX = smoothY = smoothZ = 0; });
     }
 

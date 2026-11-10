@@ -110,7 +110,6 @@ if "public static void initForAnubisAddon()" not in text:
         "customglint",
         "hitparticles",
         "freelook",
-        "freecam",
         "autowalk",
         "autojump",
         "autorelog",
@@ -245,7 +244,7 @@ if "public static void initForAnubisAddon()" not in text:
 
     private static boolean isAnubisDuplicate(ClientModule module) {
         String key = module.name.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
-        return ANUBIS_OWNED.contains(key);
+        return ANUBIS_OWNED.contains(key) || key.contains("mace");
     }
 
 """
@@ -263,6 +262,63 @@ entrypoints = data.setdefault("entrypoints", {})
 entrypoints["anubis"] = ["com.suschunkfinder.anubisaddon.IonAnubisAddon"]
 depends = data.setdefault("depends", {})
 depends["anubisplus"] = "*"
+# Register camera and other client hooks as a real mixin configuration.
+mixin_dir = root / "mixin"
+required_mixins = {"CameraMixin", "TurnMixin"}
+available_mixins = {p.stem for p in mixin_dir.glob("*.java")}
+missing_mixins = required_mixins - available_mixins
+if missing_mixins:
+    raise SystemExit("Freecam mixin sources are missing: " + ", ".join(sorted(missing_mixins)))
+
+camera = mixin_dir / "CameraMixin.java"
+camera_source = camera.read_text()
+camera_source = camera_source.replace(
+    "import net.minecraft.world.level.BlockGetter;",
+    "import net.minecraft.world.level.Level;"
+)
+camera_source = camera_source.replace(
+    "BlockGetter level, Entity entity",
+    "Level level, Entity entity"
+)
+camera_source = camera_source.replace(
+    '@Inject(method = "setup", at = @At("TAIL"), require = 0)',
+    '@Inject(method = "setup(Lnet/minecraft/world/level/Level;Lnet/minecraft/world/entity/Entity;ZZF)V", at = @At("TAIL"), require = 1)'
+)
+if "BlockGetter level" in camera_source or "Level level, Entity entity" not in camera_source:
+    raise SystemExit("CameraMixin does not match the Minecraft 1.21.11 Camera.setup(Level, Entity, boolean, boolean, float) signature.")
+if 'method = "setup(Lnet/minecraft/world/level/Level;Lnet/minecraft/world/entity/Entity;ZZF)V"' not in camera_source:
+    raise SystemExit("CameraMixin does not have the 1.21.11 setup method descriptor.")
+camera.write_text(camera_source)
+
+mixin_names = [
+    "CameraMixin", "TurnMixin", "FastUseMixin", "GlintMixin",
+    "SkinProtectMixin", "SwingSpeedMixin", "TrimMixin"
+]
+mixin_names = [name for name in mixin_names if name in available_mixins]
+mixin_config = {
+    "required": False,
+    "minVersion": "0.8",
+    "package": "com.suschunkfinder.mixin",
+    "compatibilityLevel": "JAVA_21",
+    "client": mixin_names,
+    "injectors": {"defaultRequire": 0}
+}
+resources = Path("ion-client/src/main/resources")
+resources.mkdir(parents=True, exist_ok=True)
+(resources / "suschunkfinder.mixins.json").write_text(
+    json.dumps(mixin_config, indent=2) + "\n"
+)
+mixins = data.setdefault("mixins", [])
+if not any(
+    (entry == "suschunkfinder.mixins.json")
+    or (isinstance(entry, dict) and entry.get("config") == "suschunkfinder.mixins.json")
+    for entry in mixins
+):
+    mixins.append({
+        "config": "suschunkfinder.mixins.json",
+        "environment": "client"
+    })
+
 metadata.write_text(json.dumps(data, indent=2) + "\n")
 
 gradle = Path("ion-client/build.gradle")
@@ -277,4 +333,4 @@ dependencies {
 """
 gradle.write_text(build)
 
-print("Prepared ION as an Anubis add-on, bridged settings, and filtered duplicate modules.")
+print("Prepared ION as an Anubis add-on, registered Freecam camera mixins, and filtered duplicate modules.")

@@ -6,6 +6,7 @@ on:
       - 'ION-CLIENT-visuals-experimental.zip'
       - 'ion-client-overrides/src/main/java/**'
       - 'ion-client-overrides/patch-anubis-addon.py'
+      - 'ion-client-overrides/package-anubis-merged.py'
       - '.github/workflows/ion-client-build.yml'
   workflow_dispatch:
 
@@ -25,83 +26,32 @@ jobs:
           distribution: temurin
           java-version: '25'
 
-      - name: Download and inspect Anubis release
+      - name: Download and prepare the original Anubis 1.21.11 release
         run: |
           set -euo pipefail
           curl -fL --retry 3 --retry-delay 2 -o /tmp/anubis-release.zip "https://github.com/skibidimihaiok/67/releases/download/Anubis/Anubis.Beta.0.9.9.1.zip"
-          mkdir -p /tmp/anubis-release /tmp/anubis-decompiled
-          unzip -q /tmp/anubis-release.zip -d /tmp/anubis-release
-          echo "=== RELEASE FILES ==="
-          find /tmp/anubis-release -maxdepth 4 -type f | sort | head -200
-          echo "=== ANUBIS LICENSE ==="
-          if [ -f /tmp/anubis-release/LICENSE_anubis ]; then
-            sed -n '1,220p' /tmp/anubis-release/LICENSE_anubis
-          fi
-          # Skip nested Fabric dependencies and select the actual client JAR.
-          ANUBIS_JAR="$(find /tmp/anubis-release -type f -iname '*.jar' ! -path '*/META-INF/jars/*' | sort | head -1)"
-          if [ -z "$ANUBIS_JAR" ]; then
-            # This release is an exploded Fabric mod directory, not a ZIP
-            # containing one outer JAR. Repack its classes/resources while
-            # excluding nested dependency JARs, then decompile that archive.
-            if [ ! -f /tmp/anubis-release/fabric.mod.json ]; then
-              echo "No top-level client JAR or Fabric mod metadata found"
-              exit 1
-            fi
-            mkdir -p /tmp/anubis-client-root
-            rsync -a --exclude='META-INF/jars/' /tmp/anubis-release/ /tmp/anubis-client-root/
-            jar --create --file /tmp/anubis-client.jar -C /tmp/anubis-client-root .
-            ANUBIS_JAR=/tmp/anubis-client.jar
-          fi
-          echo "Inspecting Anubis client: $ANUBIS_JAR"
-          curl -fL --retry 3 -o /tmp/cfr.jar "https://repo1.maven.org/maven2/org/benf/cfr/0.152/cfr-0.152.jar"
-          # Inspect the exact JAR uploaded by the repository owner, not the Beta ZIP.
-          curl -fL --retry 3 --retry-delay 2 -o /tmp/uploaded-1.21.11.jar "https://github.com/skibidimihaiok/67/releases/download/Anubis/1.21.11.jar"
-          echo "90af3f4a2c85e2abf84f47e7d7390ee5203c6ded80b42c3c63083c3133c234e0  /tmp/uploaded-1.21.11.jar" | sha256sum -c -
-          echo "=== EXACT UPLOADED 1.21.11 JAR METADATA ==="
-          unzip -p /tmp/uploaded-1.21.11.jar fabric.mod.json
-          echo
-          echo "=== EXACT JAR ENTRY NAMES RELATED TO GUI / BINDS / MODULES ==="
-          unzip -Z1 /tmp/uploaded-1.21.11.jar | grep -Ei '(gui|click|screen|keybind|key.?binding|module|anubis|reborn)' | head -250 || true
-          echo "=== EXACT JAR CLASS / GUI / KEYBIND IMPLEMENTATION SCAN ==="
+          mkdir -p /tmp/anubis-release /tmp/anubis-decompiled /tmp/anubis-client-root
+          unzip -q -o /tmp/anubis-release.zip -d /tmp/anubis-release
           python3 - <<'PY'
-          import json, re, zipfile
-          path = "/tmp/uploaded-1.21.11.jar"
-          pattern = re.compile(rb"gui|screen|key.?bind|key.?binding|bind|module|anubis|reborn|click|menu|hud", re.I)
-          with zipfile.ZipFile(path) as jar:
-              meta = json.loads(jar.read("fabric.mod.json"))
-              print("Fabric metadata:", json.dumps(meta, indent=2))
-              names = [n for n in jar.namelist() if n.endswith(".class")]
-              nested = [n for n in jar.namelist() if n.lower().endswith(".jar")]
-              print("Class count:", len(names))
-              print("Nested JARs:", nested)
-              print("Class path matches:")
-              for name in names:
-                  if pattern.search(name.encode()):
-                      print("  ", name)
-              print("Class constant/string matches:")
-              shown = 0
-              for name in names:
-                  data = jar.read(name)
-                  for value in re.findall(rb"[\\x20-\\x7e]{4,}", data):
-                      if pattern.search(value):
-                          print("  ", name, "=>", value[:180].decode("ascii", "replace"))
-                          shown += 1
-                          if shown >= 160:
-                              break
-                  if shown >= 160:
-                      break
-              print("First 100 class paths:")
-              print("\\n".join(names[:100]))
+          import json
+          from pathlib import Path
+          meta = json.loads(Path("/tmp/anubis-release/fabric.mod.json").read_text())
+          if meta.get("id") != "anubisplus" or not str(meta.get("version", "")).startswith("0.9.9.1"):
+              raise SystemExit(f"Unexpected Anubis release metadata: {meta.get('id')} {meta.get('version')}")
+          if not Path("/tmp/anubis-release/net/anubis/client/AnubisClientMod.class").is_file():
+              raise SystemExit("Original Anubis client entrypoint is missing from the release archive")
+          print("Using Anubis", meta["version"], "mod id", meta["id"])
           PY
-          java -jar /tmp/cfr.jar "$ANUBIS_JAR" --outputdir /tmp/anubis-decompiled --silent true
+          # Make a compile-only API JAR from the actual Anubis release files.
+          rsync -a --exclude='META-INF/jars/' /tmp/anubis-release/ /tmp/anubis-client-root/
+          jar --create --file /tmp/anubis-client.jar -C /tmp/anubis-client-root .
+          curl -fL --retry 3 -o /tmp/cfr.jar "https://repo1.maven.org/maven2/org/benf/cfr/0.152/cfr-0.152.jar"
+          java -Xmx3G -jar /tmp/cfr.jar /tmp/anubis-client.jar --outputdir /tmp/anubis-decompiled --silent true
           cp /tmp/anubis-release/LICENSE_anubis /tmp/anubis-decompiled/LICENSE_anubis
           cp /tmp/anubis-release/fabric.mod.json /tmp/anubis-decompiled/fabric.mod.json
-          echo "=== ANUBIS FABRIC METADATA ==="
-          cat /tmp/anubis-release/fabric.mod.json
-          echo "=== ANUBIS MODULE EXTENSION API ==="
+          echo "=== ANUBIS ADD-ON / MODULE API SOURCES ==="
           for file in \
             /tmp/anubis-decompiled/net/anubis/client/addon/AnubisAddon.java \
-            /tmp/anubis-decompiled/net/anubis/client/addon/AddonManager.java \
             /tmp/anubis-decompiled/net/anubis/client/module/ModuleProvider.java \
             /tmp/anubis-decompiled/net/anubis/client/module/ModuleRegistry.java \
             /tmp/anubis-decompiled/net/anubis/client/module/ModuleCategory.java \
@@ -110,137 +60,12 @@ jobs:
             /tmp/anubis-decompiled/net/anubis/client/module/setting/BooleanSetting.java \
             /tmp/anubis-decompiled/net/anubis/client/module/setting/NumberSetting.java \
             /tmp/anubis-decompiled/net/anubis/client/module/setting/ModeSetting.java \
-            /tmp/anubis-decompiled/net/anubis/client/module/setting/ColorSetting.java \
-            /tmp/anubis-decompiled/net/anubis/client/AnubisClientMod.java; do
+            /tmp/anubis-decompiled/net/anubis/client/module/setting/ColorSetting.java; do
             if [ -f "$file" ]; then
               echo "===== $file ====="
-              sed -n '1,300p' "$file"
+              sed -n '1,280p' "$file"
             fi
           done
-          echo "=== DECOMPILED SOURCE FILES ==="
-          find /tmp/anubis-decompiled -type f -name '*.java' | sort | head -300
-          echo "=== REQUESTED MODULE MATCHES ==="
-          grep -RilE 'Auto.?Relog|Free.?cam|Free.?look|Spotify|Region.?Map|Storage.?ESP|Player.?ESP|Anti.?Vanish|Player.?Bypass|Kill.?Aura|Tracers' /tmp/anubis-decompiled --include='*.java' | sort | head -100 || true
-          echo "=== REQUESTED MODULE SOURCE EXCERPTS ==="
-          while IFS= read -r file; do
-            echo "===== $file ====="
-            sed -n '1,260p' "$file"
-          done < <(grep -RilE 'Auto.?Relog|Free.?cam|Free.?look|Spotify|Region.?Map|Storage.?ESP|Player.?ESP|Anti.?Vanish|Player.?Bypass|Kill.?Aura|Tracers' /tmp/anubis-decompiled --include='*.java' | sort | head -30)
-      - name: Inspect the actual 1.21.11 client source and binary
-        run: |
-          set -euo pipefail
-          echo "=== SOURCE ARCHIVE CONTENTS ==="
-          unzip -l "suschunkfinder-1.21.11-source (4).zip" | head -250
-          mkdir -p /tmp/suschunkfinder-source
-          unzip -q "suschunkfinder-1.21.11-source (4).zip" -d /tmp/suschunkfinder-source
-          echo "=== ORIGINAL SOURCE PROJECT FILES ==="
-          find /tmp/suschunkfinder-source -maxdepth 7 -type f | sort | head -350
-          echo "=== SOURCE FABRIC METADATA ==="
-          find /tmp/suschunkfinder-source -name fabric.mod.json -print -exec cat {} +
-          echo "=== ORIGINAL MODULE REGISTRY ==="
-          sed -n '1,320p' /tmp/suschunkfinder-source/suschunkfinder/src/main/java/com/suschunkfinder/ModuleManager.java
-          echo "=== ORIGINAL GUI AND KEYBIND IMPLEMENTATION ==="
-          for file in ClickGuiModule.java ClickGuiScreen.java ModuleSettingsScreen.java Keys.java ConfigManager.java SusChunkFinderClient.java ClientModule.java; do
-            echo "===== $file ====="
-            sed -n '1,280p' "/tmp/suschunkfinder-source/suschunkfinder/src/main/java/com/suschunkfinder/$file" 2>/dev/null || true
-          done
-          echo "=== ORIGINAL PROJECT BUILD AND METADATA ==="
-          cat /tmp/suschunkfinder-source/suschunkfinder/build.gradle
-          cat /tmp/suschunkfinder-source/suschunkfinder/src/main/resources/fabric.mod.json
-          echo "=== OTHER REPOSITORY CLIENT ARCHIVES ==="
-          unzip -l "skbiditoilet-fixed (1).zip" | head -200 || true
-          echo "=== SKBIDITOILET JAR METADATA AND MODULES ==="
-          unzip -p skbiditoilet-1.0.0.jar fabric.mod.json || true
-          unzip -Z1 skbiditoilet-1.0.0.jar | grep -Ei '(gui|screen|module|key|kill|mace|anubis)' | head -200 || true
-          echo "=== SOURCE MODULE / GUI / KEYBIND FILES ==="
-          find /tmp/suschunkfinder-source -type f | grep -Ei '(module|gui|click|screen|keybind|key.?binding|kill.?aura|mace|pvp)' | sort | head -300 || true
-          echo "=== SOURCE PvP MODULE REGISTRATIONS ==="
-          grep -RinE 'Kill.?Aura|Auto.?Mace|Mace|MODULES|register.*module|add.*module' /tmp/suschunkfinder-source --include='*.java' | head -260 || true
-          echo "=== DECOMPILE EXACT 1.21.11 RELEASE JAR ==="
-          mkdir -p /tmp/uploaded-1.21.11-decompiled
-          java -jar /tmp/cfr.jar /tmp/uploaded-1.21.11.jar --outputdir /tmp/uploaded-1.21.11-decompiled --silent true
-          echo "=== DECOMPILED CLASS FILES ==="
-          find /tmp/uploaded-1.21.11-decompiled -type f | sort | head -350
-          echo "=== DECOMPILED PvP / UI / KEYBIND REFERENCES ==="
-          grep -RinE 'Kill.?Aura|Mace|PvP|key.?bind|KeyMapping|Screen|MODULES|module' /tmp/uploaded-1.21.11-decompiled --include='*.java' | head -300 || true
-      - name: Inspect the newer 1.21.11 base template and ION source
-        run: |
-          set -euo pipefail
-          mkdir -p /tmp/skbiditoilet-base /tmp/ion-source-review
-          unzip -q "skbiditoilet-fixed (1).zip" -d /tmp/skbiditoilet-base
-          unzip -q "ION-CLIENT-visuals-experimental.zip" -d /tmp/ion-source-review
-          BASE=$(find /tmp/skbiditoilet-base -name build.gradle -printf '%h\n' | head -1)
-          ION=$(find /tmp/ion-source-review -path '*/src/main/java/com/suschunkfinder/ModuleManager.java' -printf '%h\n' | head -1)
-          test -n "$BASE" && test -n "$ION"
-          echo "=== CONFIRMED BASE PROJECT === $BASE"
-          cat "$BASE/README-MODULE-PATCH.md" || true
-          cat "$BASE/build.gradle"
-          cat "$BASE/gradle.properties"
-          cat "$BASE/settings.gradle"
-          cat "$BASE/src/main/resources/fabric.mod.json"
-          echo "=== BASE REGISTERED MODULES ==="
-          sed -n '1,230p' "$BASE/src/main/java/com/suschunkfinder/ModuleManager.java"
-          echo "=== BASE UI AND KEYBIND SOURCE ==="
-          for file in ClickGuiModule.java ClickGuiScreen.java ModuleSettingsScreen.java Keys.java ModuleKeybinds.java ConfigManager.java SusChunkFinderClient.java ClientModule.java; do
-            echo "===== $file ====="
-            sed -n '1,250p' "$BASE/src/main/java/com/suschunkfinder/$file"
-          done
-          echo "=== BASE JAVA FILES ==="
-          find "$BASE/src/main/java" -type f -name '*.java' | sort
-          echo "=== ION PROJECT ROOT ==="
-          find /tmp/ion-source-review -maxdepth 4 -type f | sort | head -150
-          echo "=== ION REGISTERED MODULES ==="
-          sed -n '1,260p' "$ION/ModuleManager.java"
-          echo "=== ION MODULE FILES ==="
-          find "$(dirname "$ION")" -maxdepth 1 -type f -name '*.java' -printf '%f\n' | sort
-          echo "=== CLASS COLLISIONS AND DISPLAY-NAME COLLISIONS ==="
-          python3 - "$BASE" "$ION" <<'PY'
-          import pathlib,re,sys
-          base,ion=map(pathlib.Path,sys.argv[1:])
-          bdir=base/"src/main/java/com/suschunkfinder"
-          idir=ion
-          bnames={p.name for p in bdir.glob("*.java")}
-          inames={p.name for p in idir.glob("*.java")}
-          print("Same filenames:",sorted(bnames & inames))
-          def display(path):
-              text=path.read_text(errors="ignore")
-              m=re.search(r'super\(\s*"([^"]+)"',text)
-              return m.group(1).strip().lower() if m else None
-          bd={}
-          for p in bdir.glob("*Module.java"):
-              d=display(p)
-              if d: bd.setdefault(d,[]).append(p.name)
-          idup={}
-          for p in idir.glob("*Module.java"):
-              d=display(p)
-              if d and d in bd: idup.setdefault(d,[]).append(p.name)
-          print("Display-name collisions:",{k:{"base":bd[k],"ion":v} for k,v in sorted(idup.items())})
-          print("ION-only source candidates:",sorted(inames-bnames))
-          PY
-      - name: Upload base and ION source review
-        uses: actions/upload-artifact@v4
-        with:
-          name: base-ion-source-review
-          path: |
-            /tmp/skbiditoilet-base
-            /tmp/ion-source-review
-          if-no-files-found: error
-
-      - name: Upload original 1.21.11 inspection
-        uses: actions/upload-artifact@v4
-        with:
-          name: original-1.21.11-client-inspection
-          path: |
-            /tmp/suschunkfinder-source
-            /tmp/uploaded-1.21.11-decompiled
-          if-no-files-found: error
-
-      - name: Upload Anubis decompiled source for review
-        uses: actions/upload-artifact@v4
-        with:
-          name: anubis-decompiled-source
-          path: /tmp/anubis-decompiled
-          if-no-files-found: error
 
       - name: Extract ION CLIENT source
         run: |
@@ -316,47 +141,21 @@ jobs:
           print("Applied render partial-tick interpolation to player- and target-following effects.")
           PY
 
-      - name: Repair ESP tracers and camera controls
+      - name: Patch target highlight import
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          root = Path("ion-client/src/main/java/com/suschunkfinder")
-          
-          target = root / "TargetHighlightModule.java"
+          target = Path("ion-client/src/main/java/com/suschunkfinder/TargetHighlightModule.java")
           text = target.read_text()
           if "import net.minecraft.world.phys.Vec3;" not in text:
-              text = text.replace("import net.minecraft.world.phys.AABB;", "import net.minecraft.world.phys.AABB;\nimport net.minecraft.world.phys.Vec3;")
+              if "import net.minecraft.world.phys.AABB;" not in text:
+                  raise SystemExit("TargetHighlightModule import anchor missing")
+              text = text.replace(
+                  "import net.minecraft.world.phys.AABB;",
+                  "import net.minecraft.world.phys.AABB;\\nimport net.minecraft.world.phys.Vec3;",
+                  1
+              )
           target.write_text(text)
-
-          player = root / "PlayerEspModule.java"
-          text = player.read_text()
-          if 'BoolSetting tracers = add(BoolSetting.of("Tracers", true))' not in text:
-              text = text.replace(
-                  'private final BoolSetting fill = add(BoolSetting.of("Filled", true));',
-                  'private final BoolSetting fill = add(BoolSetting.of("Filled", true));\n\tprivate final BoolSetting tracers = add(BoolSetting.of("Tracers", true));'
-              )
-              old = 'AABB b = EspUtil.lerped(entity, pt);'
-              new = old + '\n\t\t\tif (tracers.get()) {\n\t\t\t\tvar eye = client.player.getEyePosition(pt);\n\t\t\t\tvar center = b.getCenter();\n\t\t\t\tbatch.line(eye, center, c[0], c[1], c[2], 0.95f, 0.045);\n\t\t\t}'
-              if old not in text: raise SystemExit("Player ESP interpolation anchor missing")
-              text = text.replace(old, new, 1)
-          player.write_text(text)
-
-          storage = root / "StorageEspModule.java"
-          text = storage.read_text()
-          if ('BoolSetting tracers = add(BoolSetting.of("Tracers", true))' not in text
-                  and 'BoolSetting tracers = add(BoolSetting.of("Tracers", false))' not in text):
-              text = text.replace("package com.suschunkfinder;\n", "package com.suschunkfinder;\n\nimport net.minecraft.client.Minecraft;\nimport net.minecraft.world.phys.Vec3;\n", 1)
-              text = text.replace(
-                  'private final BoolSetting fill = add(BoolSetting.of("Filled", true));',
-                  'private final BoolSetting fill = add(BoolSetting.of("Filled", true));\n\tprivate final BoolSetting tracers = add(BoolSetting.of("Tracers", true));'
-              )
-              old = 'EspUtil.block(batch, be.getBlockPos(), c, fill.get());'
-              new = old + '\n\t\t\t\tif (tracers.get()) {\n\t\t\t\t\tMinecraft client = Minecraft.getInstance();\n\t\t\t\t\tif (client.player != null) {\n\t\t\t\t\t\tVec3 start = client.player.getEyePosition();\n\t\t\t\t\t\tVec3 end = Vec3.atCenterOf(be.getBlockPos());\n\t\t\t\t\t\tbatch.line(start, end, c[0], c[1], c[2], 0.9f, 0.04);\n\t\t\t\t\t}\n\t\t\t\t}'
-              if old not in text: raise SystemExit("Storage ESP block anchor missing")
-              text = text.replace(old, new, 1)
-          storage.write_text(text)
-          
-          print("Added independent tracer toggles and world-space lines to Player ESP and Storage ESP.")
           PY
 
       - name: Validate registered ION modules
@@ -420,6 +219,33 @@ jobs:
           if "public void onBindAction()" not in combat or "Items.ENDER_PEARL" not in combat:
               raise SystemExit("Manual pearl clutch action is incomplete")
           print(f"Validated {len(required)} ION module sources, bind modes, and combat actions.")
+          PY
+
+      - name: Validate Freecam camera hooks and requested removals
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("ion-client/src/main/java/com/suschunkfinder")
+          freecam = (root / "FreecamModule.java").read_text()
+          if 'super("ION Freecam"' not in freecam:
+              raise SystemExit("ION Freecam replacement module is missing")
+          if "MODULES.add(new FreecamModule())" not in (root / "ModuleManager.java").read_text():
+              raise SystemExit("Freecam is missing from ION's module manager")
+          config_path = Path("ion-client/src/main/resources/suschunkfinder.mixins.json")
+          if not config_path.is_file():
+              raise SystemExit("Freecam mixin configuration was not generated")
+          cfg = json.loads(config_path.read_text())
+          if not {"CameraMixin", "TurnMixin"}.issubset(set(cfg.get("client", []))):
+              raise SystemExit("Freecam camera and mouse-turn mixins are not configured")
+          camera = (root / "mixin/CameraMixin.java").read_text()
+          if "Level level, Entity entity" not in camera or "BlockGetter level" in camera:
+              raise SystemExit("Freecam CameraMixin does not use the 1.21.11 Camera.setup signature")
+          addon = Path("ion-client-overrides/src/main/java/com/suschunkfinder/anubisaddon/IonAnubisAddon.java").read_text()
+          for forbidden in ("playeresp", "storageesp", "killaura", "triggerbot", "mace"):
+              if forbidden not in addon:
+                  raise SystemExit("Anubis module removal rule missing for " + forbidden)
+          print("Freecam mixins and requested module-removal rules are configured.")
           PY
 
       - name: Inspect extracted project sources
@@ -647,38 +473,37 @@ jobs:
           done
           exit 1
 
-      - name: Rebrand the original 1.21.11 client as ION Client
+      - name: Package ION inside the original Anubis 1.21.11 client
         run: |
           set -euo pipefail
-          mkdir -p dist
+          python3 ion-client-overrides/package-anubis-merged.py
+          sha256sum dist/Anubis-ION-1.21.11.jar
           python3 - <<'PY'
-          import json, zipfile
-          source = "/tmp/uploaded-1.21.11.jar"
-          target = "dist/ION-CLIENT-1.21.11.jar"
-          with zipfile.ZipFile(source, "r") as zin, zipfile.ZipFile(target, "w") as zout:
-              for item in zin.infolist():
-                  data = zin.read(item.filename)
-                  if item.filename == "fabric.mod.json":
-                      metadata = json.loads(data)
-                      metadata["name"] = "ION Client"
-                      data = (json.dumps(metadata, indent=2, ensure_ascii=False) + "\\n").encode("utf-8")
-                  zout.writestr(item, data)
-          with zipfile.ZipFile(target, "r") as check:
-              metadata = json.loads(check.read("fabric.mod.json"))
-              assert metadata.get("name") == "ION Client", metadata
-              assert len([n for n in check.namelist() if n.endswith(".class")]) > 0
-          print("Created:", target)
-          print("Visible mod name:", metadata["name"])
-          print("Fabric mod id preserved:", metadata.get("id"))
+          import io, json, zipfile
+          path = "dist/Anubis-ION-1.21.11.jar"
+          with zipfile.ZipFile(path) as outer:
+              meta = json.loads(outer.read("fabric.mod.json"))
+              assert meta["id"] == "anubisplus", meta
+              assert meta["name"] == "ION Client", meta
+              nested_path = "META-INF/jars/ion-client-anubis-addon.jar"
+              assert any(item.get("file") == nested_path for item in meta["jars"]), meta.get("jars")
+              with zipfile.ZipFile(io.BytesIO(outer.read(nested_path))) as addon:
+                  addon_meta = json.loads(addon.read("fabric.mod.json"))
+                  cfg = json.loads(addon.read("suschunkfinder.mixins.json"))
+                  assert addon_meta["id"] != meta["id"]
+                  assert {"CameraMixin", "TurnMixin"}.issubset(set(cfg["client"]))
+                  assert "com/suschunkfinder/FreecamModule.class" in addon.namelist()
+                  assert "com/suschunkfinder/mixin/CameraMixin.class" in addon.namelist()
+                  assert "com/suschunkfinder/mixin/TurnMixin.class" in addon.namelist()
+              assert "net/anubis/client/AnubisClientMod.class" in outer.namelist()
+          print("Verified native Anubis client + GUI archive and embedded ION Freecam add-on.")
           PY
-          sha256sum dist/ION-CLIENT-1.21.11.jar
-          unzip -p dist/ION-CLIENT-1.21.11.jar fabric.mod.json
 
       - name: Upload ION Client 1.21.11
         uses: actions/upload-artifact@v4
         with:
-          name: ION-CLIENT-1.21.11
-          path: dist/ION-CLIENT-1.21.11.jar
+          name: Anubis-ION-1.21.11
+          path: dist/Anubis-ION-1.21.11.jar
           if-no-files-found: error
 
 # Visual effect geometry sources are copied from ion-client-overrides during the build.
