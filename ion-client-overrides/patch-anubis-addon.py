@@ -321,6 +321,13 @@ if not any(
 
 metadata.write_text(json.dumps(data, indent=2) + "\n")
 
+# Give the new Left Shift binding a readable name in Controls.
+language = resources / "assets/ionclient/lang/en_us.json"
+language.parent.mkdir(parents=True, exist_ok=True)
+translations = json.loads(language.read_text()) if language.is_file() else {}
+translations["key.ionclient.open_gui"] = "Open ION Client GUI"
+language.write_text(json.dumps(translations, indent=2) + "\n")
+
 gradle = Path("ion-client/build.gradle")
 build = gradle.read_text()
 if "files('/tmp/anubis-client.jar')" not in build and 'files("/tmp/anubis-client.jar")' not in build:
