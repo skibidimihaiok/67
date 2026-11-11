@@ -16,7 +16,10 @@ accessors = (
     "    public double max() { return max; }",
     "    public double step() { return step; }",
 )
-missing = [line for line in accessors if re.search(r"public double " + line.split()[3].split("(")[0] + r"\s*\(", text) is None]
+missing = []
+for name, line in zip(("min", "max", "step"), accessors):
+    if re.search(r"public double " + name + r"\s*\(", text) is None:
+        missing.append(line)
 if missing:
     match = re.search(r"(\t*public int getInt\(\)\s*\{[^}]*\})", text)
     if not match:
