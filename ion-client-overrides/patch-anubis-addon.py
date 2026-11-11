@@ -21,7 +21,7 @@ for name, line in zip(("min", "max", "step"), accessors):
     if re.search(r"public double " + name + r"\s*\(", text) is None:
         missing.append(line)
 if missing:
-    match = re.search(r"(\t*public int getInt\(\)\s*\{[^}]*\})", text)
+    match = re.search(r"(^[ \t]*public int getInt\(\)\s*\{[^}]*\})", text, re.MULTILINE)
     if not match:
         raise SystemExit("NumberSetting getInt() anchor missing")
     text = text[:match.end()] + "\n" + "\n".join(missing) + text[match.end():]
