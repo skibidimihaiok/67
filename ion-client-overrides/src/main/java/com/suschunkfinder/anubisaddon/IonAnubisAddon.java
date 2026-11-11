@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-import net.anubis.client.AnubisClientMod;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.resources.Identifier;
 import net.anubis.client.addon.AnubisAddon;
@@ -15,6 +14,8 @@ import net.minecraft.client.KeyMapping;
 import org.lwjgl.glfw.GLFW;
 
 import com.suschunkfinder.IonAddonRuntime;
+import com.suschunkfinder.ClickGuiScreen;
+import com.suschunkfinder.ModuleKeybinds;
 
 /** Adds ION modules to Anubis's native GUI and keeps its GUI on a Left Shift shortcut. */
 public final class IonAnubisAddon extends AnubisAddon {
@@ -36,17 +37,15 @@ public final class IonAnubisAddon extends AnubisAddon {
             String combined = id + name;
 
             boolean requestedRemoval =
-                combined.contains("playeresp")
-                || combined.contains("storageesp")
-                || combined.contains("killaura")
-                || combined.contains("triggerbot")
-                || combined.contains("mace");
+                combined.contains("esp")
+                || combined.contains("tracer")
+                || combined.contains("killaura");
 
-            // Replace Anubis's own Freecam with the ION implementation, but do not
-            // remove the adapter named "ION Freecam".
+            // Replace Anubis's native camera modules with the ION implementations.
             boolean nativeFreecam = id.equals("freecam") || name.equals("freecam");
+            boolean nativeFreeLook = id.equals("freelook") || name.equals("freelook");
 
-            if (requestedRemoval || nativeFreecam) {
+            if (requestedRemoval || nativeFreecam || nativeFreeLook) {
                 if (module.isEnabled()) {
                     module.setEnabled(false);
                 }
@@ -60,6 +59,7 @@ public final class IonAnubisAddon extends AnubisAddon {
     @Override
     public void onInitialize() {
         IonAddonRuntime.initializeForAnubisAddon();
+        ModuleKeybinds.register();
         ModuleRegistry.registerProvider(new IonModuleProvider());
 
         // Anubis's built-in key defaults to Right Shift (key code 344).
@@ -76,7 +76,7 @@ public final class IonAnubisAddon extends AnubisAddon {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (openIonGuiKey.consumeClick()) {
                 if (client.player != null) {
-                    AnubisClientMod.toggleGuiFromKey();
+                    client.setScreen(new ClickGuiScreen());
                 }
             }
         });

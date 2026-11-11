@@ -233,7 +233,7 @@ jobs:
           if "MODULES.add(new FreecamModule())" not in (root / "ModuleManager.java").read_text():
               raise SystemExit("Freecam is missing from ION's module manager")
           if '"clickgui"' not in (root / "ModuleManager.java").read_text():
-              raise SystemExit("Legacy ION ClickGUI must be filtered so Anubis remains the only GUI")
+              raise SystemExit("Legacy ClickGUI module must remain filtered; the original ION ClickGUI is opened by Left Shift")
           config_path = Path("ion-client/src/main/resources/suschunkfinder.mixins.json")
           if not config_path.is_file():
               raise SystemExit("Freecam mixin configuration was not generated")
@@ -244,11 +244,13 @@ jobs:
           if "Level level, Entity entity" not in camera or "BlockGetter level" in camera:
               raise SystemExit("Freecam CameraMixin does not use the 1.21.11 Camera.setup signature")
           addon = Path("ion-client-overrides/src/main/java/com/suschunkfinder/anubisaddon/IonAnubisAddon.java").read_text()
-          for forbidden in ("playeresp", "storageesp", "killaura", "triggerbot", "mace"):
-              if forbidden not in addon:
-                  raise SystemExit("Anubis module removal rule missing for " + forbidden)
-          if '"key.ionclient.open_gui"' not in addon or "GLFW.GLFW_KEY_LEFT_SHIFT" not in addon or "KeyMapping.Category.register" not in addon or "AnubisClientMod.toggleGuiFromKey()" not in addon:
-              raise SystemExit("Anubis native GUI is not wired to the new Left Shift shortcut")
+          for required in ('combined.contains("esp")', 'combined.contains("tracer")', 'combined.contains("killaura")'):
+              if required not in addon:
+                  raise SystemExit("Requested ESP/KillAura removal rule missing: " + required)
+          if "nativeFreecam" not in addon or "nativeFreeLook" not in addon:
+              raise SystemExit("ION Freecam/FreeLook replacements are not configured")
+          if '"key.ionclient.open_gui"' not in addon or "GLFW.GLFW_KEY_LEFT_SHIFT" not in addon or "KeyMapping.Category.register" not in addon or "new ClickGuiScreen()" not in addon or "ModuleKeybinds.register()" not in addon:
+              raise SystemExit("ION ClickGUI and module keybinds are not wired to Left Shift")
           print("Freecam mixins and requested module-removal rules are configured.")
           PY
 
@@ -315,152 +317,6 @@ jobs:
           settings.write_text(text)
           PY
 
-      - name: Replace the old ClickGUI with the Prestige-inspired layout
-        run: |
-          cat > ion-client/src/main/java/com/suschunkfinder/ClickGuiScreen.java <<'JAVA'
-          package com.suschunkfinder;
-
-          import java.util.ArrayList;
-          import java.util.List;
-          import java.util.Locale;
-
-          import net.minecraft.client.gui.GuiGraphics;
-          import net.minecraft.client.gui.components.EditBox;
-          import net.minecraft.client.gui.screens.Screen;
-          import net.minecraft.client.input.MouseButtonEvent;
-          import net.minecraft.network.chat.Component;
-
-          /** Original ION-styled ClickGUI: compact header, category tabs and clean module rows. */
-          public class ClickGuiScreen extends Screen {
-              private static final int[] SCROLL = new int[ClientModule.Category.values().length];
-              private static final ClientModule.Category[] CATS = ClientModule.Category.values();
-              private static final int ROW_H = 31;
-              private static String lastSearch = "";
-              private int left, top, panelWidth, panelHeight, contentX, contentW, selected;
-              private EditBox search;
-
-              public ClickGuiScreen() { super(Component.literal("ION CLIENT")); }
-              @Override public boolean isPauseScreen() { return false; }
-
-              @Override protected void init() {
-                  panelWidth = Math.min(this.width - 24, 690);
-                  panelHeight = Math.min(this.height - 24, 390);
-                  left = (this.width - panelWidth) / 2;
-                  top = (this.height - panelHeight) / 2;
-                  contentX = left + 18;
-                  contentW = panelWidth - 36;
-                  search = new EditBox(font, left + panelWidth - 178, top + 17, 154, 18, Component.literal("Search modules"));
-                  search.setMaxLength(32);
-                  search.setValue(lastSearch);
-                  search.setHint(Component.literal("Search..."));
-                  search.setResponder(value -> { lastSearch = value; SCROLL[selected] = 0; });
-                  addRenderableWidget(search);
-              }
-
-              private List<ClientModule> modules() {
-                  List<ClientModule> out = new ArrayList<>();
-                  String q = lastSearch.trim().toLowerCase(Locale.ROOT);
-                  for (ClientModule m : ModuleManager.in(CATS[selected])) {
-                      if (q.isEmpty() || m.name.toLowerCase(Locale.ROOT).contains(q)) out.add(m);
-                  }
-                  return out;
-              }
-
-              @Override public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-                  if (super.mouseClicked(event, doubleClick)) return true;
-                  double mx = event.x(), my = event.y();
-                  int tabY = top + 53;
-                  int tabW = Math.max(66, (contentW - (CATS.length - 1) * 5) / CATS.length);
-                  for (int i = 0; i < CATS.length; i++) {
-                      int tx = contentX + i * (tabW + 5);
-                      if (mx >= tx && mx < tx + tabW && my >= tabY && my < tabY + 27) {
-                          selected = i; SCROLL[selected] = 0; return true;
-                      }
-                  }
-                  int listTop = top + 91;
-                  if (mx >= contentX && mx < contentX + contentW && my >= listTop && my < top + panelHeight - 18) {
-                      int colW = (contentW - 12) / 2;
-                      int col = mx < contentX + colW ? 0 : 1;
-                      int row = (int)(my - listTop + SCROLL[selected] * ROW_H) / ROW_H;
-                      List<ClientModule> list = modules();
-                      int perCol = (list.size() + 1) / 2;
-                      int index = col * perCol + row;
-                      if (index >= 0 && index < list.size()) {
-                          ClientModule module = list.get(index);
-                          if (event.button() == 1) minecraft.setScreen(new ModuleSettingsScreen(module, this));
-                          else if (event.button() == 0) module.setEnabled(!module.isEnabled());
-                          return true;
-                      }
-                  }
-                  return false;
-              }
-
-              @Override public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-                  int rows = (modules().size() + 1) / 2;
-                  int visible = Math.max(1, (panelHeight - 125) / ROW_H);
-                  SCROLL[selected] = Math.max(0, Math.min(Math.max(0, rows - visible), SCROLL[selected] - (int)Math.signum(scrollY) * 2));
-                  return true;
-              }
-
-              @Override public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float delta) { }
-
-              @Override public void render(GuiGraphics g, int mouseX, int mouseY, float delta) {
-                  int x = left, y = top, right = left + panelWidth, bottom = top + panelHeight;
-                  // ION's own graphite-and-electric-cyan visual identity.
-                  g.fill(0, 0, this.width, this.height, 0x99040A12);
-                  g.fill(x + 5, y + 6, right + 5, bottom + 6, 0x77000000);
-                  g.fill(x, y, right, bottom, 0xFF0B111B);
-                  g.fill(x + 1, y + 1, right - 1, bottom - 1, 0xFF101A27);
-                  g.fill(x + 1, y + 1, right - 1, y + 45, 0xFF111E2C);
-                  g.fill(x + 1, y + 44, right - 1, y + 46, ThemeModule.color());
-                  g.fill(x + 1, y + 1, x + 3, bottom - 1, ThemeModule.color());
-
-                  g.drawString(font, "ION", x + 18, y + 13, ThemeModule.color(), true);
-                  g.drawString(font, "CLIENT", x + 45, y + 13, 0xFFF1F7FC, true);
-                  g.drawString(font, "CONTROL CENTER  •  FABRIC", x + 18, y + 29, 0xFF7894AE, false);
-                  g.drawString(font, "v1.0", right - 43, y + 18, 0xFF7894AE, false);
-                  super.render(g, mouseX, mouseY, delta);
-
-                  int tabY = y + 53;
-                  int tabW = Math.max(66, (contentW - (CATS.length - 1) * 5) / CATS.length);
-                  for (int i = 0; i < CATS.length; i++) {
-                      int tx = contentX + i * (tabW + 5);
-                      boolean active = i == selected;
-                      g.fill(tx, tabY, tx + tabW, tabY + 27, active ? 0xFF16465A : 0xFF172433);
-                      if (active) g.fill(tx + 1, tabY + 24, tx + tabW - 1, tabY + 26, ThemeModule.color());
-                      String label = CATS[i].label;
-                      g.drawCenteredString(font, label, tx + tabW / 2, tabY + 9, active ? 0xFFECFCFF : 0xFF91A8BE);
-                  }
-
-                  List<ClientModule> list = modules();
-                  g.drawString(font, CATS[selected].label.toUpperCase(Locale.ROOT), contentX, y + 85, 0xFFEAF5FC, true);
-                  g.drawString(font, list.size() + " MODULES", right - 92, y + 85, 0xFF7894AE, false);
-
-                  int listTop = y + 101;
-                  int colW = (contentW - 12) / 2;
-                  int perCol = (list.size() + 1) / 2;
-                  int visible = Math.max(1, (panelHeight - 125) / ROW_H);
-                  for (int col = 0; col < 2; col++) {
-                      int cx = contentX + col * (colW + 12);
-                      for (int row = 0; row < visible; row++) {
-                          int index = col * perCol + row + SCROLL[selected];
-                          if (index >= list.size()) break;
-                          ClientModule m = list.get(index);
-                          int ry = listTop + row * ROW_H;
-                          boolean over = mouseX >= cx && mouseX < cx + colW && mouseY >= ry && mouseY < ry + ROW_H - 3;
-                          g.fill(cx, ry, cx + colW, ry + ROW_H - 3, over ? 0xFF203448 : 0xFF172534);
-                          g.fill(cx, ry, cx + 2, ry + ROW_H - 3, m.isEnabled() ? 0xFF22D5EE : 0xFF304457);
-                          g.drawString(font, Hud.fit(m.name, colW - 62), cx + 11, ry + 10, m.isEnabled() ? 0xFFF1FCFF : 0xFFB1C2D1, false);
-                          int sx = cx + colW - 37, sy = ry + 9;
-                          g.fill(sx, sy, sx + 25, sy + 13, m.isEnabled() ? ThemeModule.color() : 0xFF34485B);
-                          int knob = m.isEnabled() ? sx + 14 : sx + 2;
-                          g.fill(knob, sy + 2, knob + 9, sy + 11, m.isEnabled() ? 0xFFB8FAFF : 0xFF9BAEBE);
-                      }
-                  }
-                  g.drawString(font, "LMB  Toggle     RMB  Settings     Scroll  Browse", contentX, bottom - 12, 0xFF718DA7, false);
-              }
-          }
-          JAVA
       - name: Build Fabric mod (retry transient downloads)
         working-directory: ion-client
         run: |

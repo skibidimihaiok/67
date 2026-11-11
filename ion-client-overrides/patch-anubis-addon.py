@@ -110,7 +110,6 @@ if "public static void initForAnubisAddon()" not in text:
         "customcrosshair",
         "customglint",
         "hitparticles",
-        "freelook",
         "autowalk",
         "autojump",
         "autorelog",
@@ -121,7 +120,6 @@ if "public static void initForAnubisAddon()" not in text:
         "speed",
         "spider",
         "nofall",
-        "triggerbot",
         "autototem",
         "aura",
         "automace",
@@ -165,7 +163,6 @@ if "public static void initForAnubisAddon()" not in text:
         "hovertotem",
         "jumpreset",
         "keythrow",
-        "mace",
         "shieldbreaker",
         "anchormacro",
         "spearswap",
@@ -245,7 +242,7 @@ if "public static void initForAnubisAddon()" not in text:
 
     private static boolean isAnubisDuplicate(ClientModule module) {
         String key = module.name.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
-        return ANUBIS_OWNED.contains(key) || key.contains("mace");
+        return ANUBIS_OWNED.contains(key) || key.contains("esp") || key.contains("tracer");
     }
 
 """
