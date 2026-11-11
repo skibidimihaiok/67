@@ -1,0 +1,55 @@
+name: Rebrand 1.21.11 as ION Client
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - ion-client-development
+    paths:
+      - '.github/workflows/rebrand-ion-client.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  rebrand:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download and verify the exact original client
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --retry-delay 2 -o original.jar "https://github.com/skibidimihaiok/67/releases/download/Anubis/1.21.11.jar"
+          echo "90af3f4a2c85e2abf84f47e7d7390ee5203c6ded80b42c3c63083c3133c234e0  original.jar" | sha256sum -c -
+
+      - name: Change the visible name to ION Client
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          python3 - <<'PY'
+          import json, zipfile
+          source = "original.jar"
+          target = "dist/ION-CLIENT-1.21.11.jar"
+          with zipfile.ZipFile(source, "r") as zin, zipfile.ZipFile(target, "w") as zout:
+              for item in zin.infolist():
+                  data = zin.read(item.filename)
+                  if item.filename == "fabric.mod.json":
+                      metadata = json.loads(data)
+                      metadata["name"] = "ION Client"
+                      data = (json.dumps(metadata, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
+                  zout.writestr(item, data)
+          with zipfile.ZipFile(target, "r") as check:
+              metadata = json.loads(check.read("fabric.mod.json"))
+              assert metadata.get("name") == "ION Client"
+              assert metadata.get("id") == "reborn-dynamic-fps"
+              assert len([n for n in check.namelist() if n.endswith(".class")]) == 330
+          print("Verified visible name:", metadata["name"])
+          print("Preserved internal Fabric id:", metadata["id"])
+          PY
+          sha256sum dist/ION-CLIENT-1.21.11.jar
+
+      - name: Upload ION Client
+        uses: actions/upload-artifact@v4
+        with:
+          name: ION-CLIENT-1.21.11
+          path: dist/ION-CLIENT-1.21.11.jar
+          if-no-files-found: error

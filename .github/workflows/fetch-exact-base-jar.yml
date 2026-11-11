@@ -1,0 +1,28 @@
+name: Fetch exact 1.21.11 release base for ION merge
+
+on:
+  push:
+    branches: [ion-client-development]
+    paths:
+      - '.github/workflows/fetch-exact-base-jar.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  fetch-base:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download exact 1.21.11.jar release asset
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --retry-delay 2 -o 1.21.11.jar "https://github.com/skibidimihaiok/67/releases/download/Anubis/1.21.11.jar"
+          sha256sum 1.21.11.jar
+          stat -c '%n %s bytes' 1.21.11.jar
+          file 1.21.11.jar || true
+      - name: Upload exact release base
+        uses: actions/upload-artifact@v4
+        with:
+          name: exact-1.21.11-release-base
+          path: 1.21.11.jar
+          if-no-files-found: error
