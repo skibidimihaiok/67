@@ -7,11 +7,21 @@ root = Path("ion-client/src/main/java/com/suschunkfinder")
 # Expose the two small pieces of ION setting metadata needed by Anubis' UI bridge.
 number = root / "NumberSetting.java"
 text = number.read_text()
-if "public double step()" not in text:
-    anchor = "public double max() { return max; }"
-    if anchor not in text:
-        raise SystemExit("NumberSetting max() anchor missing")
-    text = text.replace(anchor, anchor + "\n    public double step() { return step; }", 1)
+# Keep the settings UI compatible with both the original ION source and the
+# override copy. Insert any missing accessors after getInt(), independent of
+# whitespace or whether the source already exposes min()/max().
+import re
+accessors = (
+    "    public double min() { return min; }",
+    "    public double max() { return max; }",
+    "    public double step() { return step; }",
+)
+missing = [line for line in accessors if re.search(r"public double " + line.split()[3].split("(")[0] + r"\s*\(", text) is None]
+if missing:
+    match = re.search(r"(\t*public int getInt\(\)\s*\{[^}]*\})", text)
+    if not match:
+        raise SystemExit("NumberSetting getInt() anchor missing")
+    text = text[:match.end()] + "\n" + "\n".join(missing) + text[match.end():]
 number.write_text(text)
 
 mode = root / "ModeSetting.java"
