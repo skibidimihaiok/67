@@ -1,0 +1,381 @@
+name: Build single-mod ION client from original 1.21.11 source
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ion-client-development]
+    paths:
+      - ".github/workflows/ion-source-base-build.yml"
+      - "suschunkfinder-1.21.11-source (4).zip"
+      - "ION-CLIENT-visuals-experimental.zip"
+      - "ion-client-overrides/src/main/java/**"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Merge ION source modules into the original base project
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/ion-base /tmp/ion-visual-source "$GITHUB_WORKSPACE/dist"
+          unzip -q "suschunkfinder-1.21.11-source (4).zip" -d /tmp/ion-base
+          unzip -q "ION-CLIENT-visuals-experimental.zip" -d /tmp/ion-visual-source
+
+          BASE="$(find /tmp/ion-base -name build.gradle -printf '%h\n' | head -1)"
+          IONROOT="$(find /tmp/ion-visual-source -name gradlew -printf '%h\n' | head -1)"
+          OVR="$GITHUB_WORKSPACE/ion-client-overrides/src/main/java/com/suschunkfinder"
+          SRC="$BASE/src/main/java/com/suschunkfinder"
+          RES="$BASE/src/main/resources"
+          test -n "$BASE" && test -n "$IONROOT"
+          test -d "$OVR" && test -d "$SRC"
+
+          # Reuse the source project's Gradle wrapper; keep the original base build files.
+          cp -a "$IONROOT/gradle" "$BASE/gradle"
+          cp "$IONROOT/gradlew" "$BASE/gradlew"
+          chmod +x "$BASE/gradlew"
+
+          export BASE SRC RES OVR IONROOT
+          python3 - <<'PY'
+          import hashlib, json, os, re, shutil
+          from pathlib import Path
+
+          base = Path(os.environ["BASE"])
+          src = Path(os.environ["SRC"])
+          res = Path(os.environ["RES"])
+          ovr = Path(os.environ["OVR"])
+          ionroot = Path(os.environ["IONROOT"])
+
+          manager = src / "ModuleManager.java"
+          keys = src / "Keys.java"
+          gui = src / "ClickGuiScreen.java"
+          mode = src / "ModeSetting.java"
+          number = src / "NumberSetting.java"
+          storage = src / "StorageEspModule.java"
+          player = src / "PlayerEspModule.java"
+
+          original_storage_hash = hashlib.sha256(storage.read_bytes()).hexdigest()
+          original_gui = gui.read_text()
+          original_manager = manager.read_text()
+
+          forbidden = {
+              "KillAuraModule", "AutoMaceModule", "ElytraMaceTargetModule",
+              "TriggerBotModule", "PlayerEspModule", "StorageEspModule"
+          }
+
+          # Keep the existing base Storage ESP byte-for-byte. Remove Player ESP completely.
+          player.unlink(missing_ok=True)
+
+          # ION's settings, keybind, theme and helper implementations share the base package.
+          helpers = [
+              "ClientModule.java", "CameraControl.java", "ColorSetting.java",
+              "DonutRegionMapData.java", "ModuleKeybinds.java",
+              "ModuleSettingsScreen.java", "NumberSetting.java",
+              "SpotifyLyrics.java", "ThemeModule.java", "VisualEffects.java"
+          ]
+          for name in helpers:
+              source = ovr / name
+              if not source.is_file():
+                  raise SystemExit(f"Missing required ION source: {source}")
+              shutil.copy2(source, src / name)
+
+          # Bring in ION's actual module implementations, while retaining one base Storage ESP.
+          copied_modules = []
+          for source in sorted(ovr.glob("*Module.java")):
+              name = source.stem
+              if name in forbidden or "Mace" in name or "KillAura" in name or "TriggerBot" in name:
+                  continue
+              if name == "ClientModule":
+                  continue
+              shutil.copy2(source, src / source.name)
+              copied_modules.append(name)
+
+          # Keep the original Freecam config identity while using ION's updated implementation.
+          freecam = src / "FreecamModule.java"
+          freecam_text = freecam.read_text()
+          freecam_text = freecam_text.replace('super("ION Freecam",', 'super("Freecam",')
+          freecam.write_text(freecam_text)
+
+          # The ION tracer and ESP modules need the additional line primitive from the ION source.
+          esp_batch = ionroot / "src/main/java/com/suschunkfinder/EspBatch.java"
+          if not esp_batch.is_file():
+              raise SystemExit(f"Missing ION EspBatch source: {esp_batch}")
+          shutil.copy2(esp_batch, src / "EspBatch.java")
+
+          # The detached-camera mouse hook now respects the ION sensitivity setting.
+          turn_mixin = ovr / "mixin/TurnMixin.java"
+          if not turn_mixin.is_file():
+              raise SystemExit(f"Missing ION TurnMixin source: {turn_mixin}")
+          shutil.copy2(turn_mixin, src / "mixin/TurnMixin.java")
+
+          # Add the ModeSetting bridge methods required by ION settings and adapters.
+          mode_text = mode.read_text()
+          if "public String[] modes()" not in mode_text:
+              anchor = "\tpublic String mode() {"
+              if anchor not in mode_text:
+                  raise SystemExit("Could not locate ModeSetting.mode() insertion point")
+              addition = (
+                  "\tpublic String[] modes() { return modes.clone(); }\n\n"
+                  "\tpublic void setMode(String value) {\n"
+                  "\t\tfor (int i = 0; i < modes.length; i++) {\n"
+                  "\t\t\tif (modes[i].equals(value)) { setter.accept(i); return; }\n"
+                  "\t\t}\n"
+                  "\t}\n\n"
+              )
+              mode_text = mode_text.replace(anchor, addition + anchor, 1)
+              mode.write_text(mode_text)
+
+          number_text = number.read_text()
+          if "public double step()" not in number_text:
+              anchor = "public double max() { return max; }"
+              if anchor not in number_text:
+                  raise SystemExit("Could not locate NumberSetting.max() insertion point")
+              number_text = number_text.replace(anchor, anchor + "\n    public double step() { return step; }", 1)
+              number.write_text(number_text)
+
+          # Register only ION modules that the original base does not already provide.
+          registered = set(re.findall(r"MODULES\\.add\\(new\\s+([A-Za-z0-9_]+)\\s*\\(", original_manager))
+          new_modules = sorted(
+              name for name in copied_modules
+              if name not in registered
+              and name not in forbidden
+              and name not in {"ClientModule", "HudModule"}
+              and "Mace" not in name
+              and "KillAura" not in name
+              and "TriggerBot" not in name
+              and "PlayerEsp" not in name
+              and "StorageEsp" not in name
+          )
+
+          manager_text = original_manager
+          manager_text = re.sub(
+              r"^[ \\t]*MODULES\\.add\\(new PlayerEspModule\\(\\)\\);\\s*\\n",
+              "",
+              manager_text,
+              flags=re.MULTILINE
+          )
+          registration = "".join(f"\t\tMODULES.add(new {name}());\n" for name in new_modules)
+          if registration:
+              if "\t\tload();" not in manager_text:
+                  raise SystemExit("Could not locate ModuleManager.load() insertion point")
+              manager_text = manager_text.replace("\t\tload();", registration + "\t\tload();", 1)
+
+          if "ModuleKeybinds.register();" not in manager_text:
+              manager_text = manager_text.replace(
+                  "\t\tload();",
+                  "\t\tload();\n\t\tModuleKeybinds.register();",
+                  1
+              )
+
+          save_anchor = "\t\ttry {\n\t\t\tFiles.writeString(path(), GSON.toJson(out));"
+          if '__keybinds' not in manager_text:
+              if save_anchor not in manager_text:
+                  raise SystemExit("Could not locate ModuleManager.save() insertion point")
+              manager_text = manager_text.replace(
+                  save_anchor,
+                  '\t\tout.put("__keybinds", new LinkedHashMap<>(ModuleKeybinds.snapshot()));\n' + save_anchor,
+                  1
+              )
+
+          load_anchor = "\t\t\tif (in == null) {\n\t\t\t\treturn;\n\t\t\t}\n"
+          if "ModuleKeybinds.load(in.get" not in manager_text:
+              if load_anchor not in manager_text:
+                  raise SystemExit("Could not locate ModuleManager.load() insertion point")
+              manager_text = manager_text.replace(
+                  load_anchor,
+                  load_anchor + '\t\t\tModuleKeybinds.load(in.get("__keybinds"));\n',
+                  1
+              )
+          manager.write_text(manager_text)
+
+          # Keep the original Click GUI layout; only update its title/branding.
+          gui.write_text(original_gui.replace('Component.literal("Sus Client")', 'Component.literal("ION CLIENT")', 1))
+
+          # Use a fresh Left Shift mapping ID so the old U mapping cannot shadow it.
+          key_text = keys.read_text()
+          replacements = [
+              ('Identifier.fromNamespaceAndPath(SusChunkFinderClient.MOD_ID, "main")',
+               'Identifier.fromNamespaceAndPath("ionclient", "controls")'),
+              ('"key.suschunkfinder.open_gui"', '"key.ionclient.open_gui"'),
+              ('GLFW.GLFW_KEY_U', 'GLFW.GLFW_KEY_LEFT_SHIFT'),
+              ('The U key opens the client menu.', 'Left Shift opens the ION Client menu.')
+          ]
+          for old, new in replacements:
+              if old not in key_text:
+                  raise SystemExit(f"Could not find Keys.java anchor: {old}")
+              key_text = key_text.replace(old, new, 1)
+          keys.write_text(key_text)
+
+          # ION branding and icon, without adding a second Fabric mod descriptor.
+          meta_path = res / "fabric.mod.json"
+          meta = json.loads(meta_path.read_text())
+          meta["name"] = "ION CLIENT"
+          meta["description"] = "ION CLIENT integrated into the original Minecraft 1.21.11 client GUI and module system."
+          meta["authors"] = ["ION CLIENT"]
+          meta["icon"] = "assets/skbiditoilet/icon.png"
+          meta_path.write_text(json.dumps(meta, indent=2) + "\n")
+
+          icon_source = ionroot / "src/main/resources/assets/skbiditoilet/icon.png"
+          if not icon_source.is_file():
+              raise SystemExit(f"Missing ION icon: {icon_source}")
+          icon_target = res / "assets/skbiditoilet/icon.png"
+          icon_target.parent.mkdir(parents=True, exist_ok=True)
+          shutil.copy2(icon_source, icon_target)
+
+          lang_path = res / "assets/suschunkfinder/lang/en_us.json"
+          lang = json.loads(lang_path.read_text())
+          lang["key.ionclient.open_gui"] = "Open ION Client GUI"
+          lang["key.categories.ionclient.controls"] = "ION Client"
+          lang_path.write_text(json.dumps(lang, indent=2) + "\n")
+
+          # Keep the source archive's config namespace and confirm the one base Storage ESP is untouched.
+          if hashlib.sha256(storage.read_bytes()).hexdigest() != original_storage_hash:
+              raise SystemExit("Base StorageEspModule.java was modified")
+          if manager_text.count("MODULES.add(new StorageEspModule())") != 1:
+              raise SystemExit("Expected exactly one base Storage ESP registration")
+          if manager_text.count("MODULES.add(new MobEspModule())") != 1:
+              raise SystemExit("Expected exactly one Mob ESP registration")
+          if "PlayerEspModule" in manager_text or player.exists():
+              raise SystemExit("Player ESP was not fully removed")
+          if any(name in manager_text for name in forbidden - {"StorageEspModule"}):
+              raise SystemExit("An excluded ION module was registered")
+
+          # The module settings/config/keybind system is still the original base system plus ION binds.
+          for required in ["ModuleKeybinds.register()", 'out.put("__keybinds"', 'ModuleKeybinds.load(in.get("__keybinds"))']:
+              if required not in manager_text:
+                  raise SystemExit(f"Missing config/keybind integration: {required}")
+          if "GLFW.GLFW_KEY_LEFT_SHIFT" not in key_text or "key.ionclient.open_gui" not in key_text:
+              raise SystemExit("Left Shift GUI keybind was not installed")
+
+          # Persist the exact source merge summary for the artifact.
+          info = {
+              "base_project": "suschunkfinder-1.21.11-source (4).zip",
+              "ion_source": "ion-client-overrides + ION-CLIENT-visuals-experimental.zip",
+              "new_ion_modules_registered": new_modules,
+              "new_ion_module_count": len(new_modules),
+              "player_esp": "removed",
+              "storage_esp": "original base implementation only",
+              "mob_esp": "single ION implementation",
+              "gui": "original base ClickGuiScreen layout retained; title branded ION CLIENT",
+              "gui_open_key": "Left Shift (new key id key.ionclient.open_gui)",
+              "config": "original config file extended with __keybinds",
+              "anubis_addon_classes": "not copied"
+          }
+          (base / "ion-source-merge-info.json").write_text(json.dumps(info, indent=2) + "\n")
+          print("Registered new ION modules:", ", ".join(new_modules))
+          print("New ION module count:", len(new_modules))
+          print("Base Storage ESP SHA-256:", original_storage_hash)
+          PY
+
+          # Set the release identity while keeping the original mod ID/config namespace.
+          sed -i 's/^mod_version=.*/mod_version=1.2.0/' "$BASE/gradle.properties"
+          sed -i 's/^archives_base_name=.*/archives_base_name=ion-client-1.21.11/' "$BASE/gradle.properties"
+          echo "BASE_PROJECT=$BASE" >> "$GITHUB_ENV"
+
+      - name: Build from original Minecraft 1.21.11 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$BASE_PROJECT"
+          ./gradlew --no-daemon clean build
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          JAR="$(find build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' | head -1)"
+          test -n "$JAR"
+          cp "$JAR" "$GITHUB_WORKSPACE/dist/ION-CLIENT-1.21.11.jar"
+          cp ion-source-merge-info.json "$GITHUB_WORKSPACE/dist/ion-source-merge-info.json"
+          printf 'branch=%s\ncommit=%s\n' "$GITHUB_REF_NAME" "$GITHUB_SHA" > "$GITHUB_WORKSPACE/dist/build-info.txt"
+
+      - name: Inspect the built JAR and enforce merge requirements
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, zipfile
+          from pathlib import Path
+
+          jar_path = Path("dist/ION-CLIENT-1.21.11.jar")
+          assert jar_path.is_file() and jar_path.stat().st_size > 100_000, "Built JAR missing or unexpectedly small"
+          with zipfile.ZipFile(jar_path) as z:
+              assert z.testzip() is None, "ZIP integrity check failed"
+              names = z.namelist()
+              descriptors = [n for n in names if n.endswith("fabric.mod.json")]
+              assert descriptors == ["fabric.mod.json"], f"Expected one Fabric descriptor, found {descriptors}"
+              nested = [n for n in names if n.endswith(".jar") or n.startswith("META-INF/jars/")]
+              assert not nested, f"Unexpected nested JARs: {nested[:10]}"
+
+              meta = json.loads(z.read("fabric.mod.json"))
+              assert meta["id"] == "suschunkfinder", meta
+              assert meta["name"] == "ION CLIENT", meta
+              assert meta["version"] == "1.2.0", meta
+              assert meta["icon"] in names, f"Missing icon resource: {meta.get('icon')}"
+
+              def count(path):
+                  return names.count(path)
+
+              required_once = [
+                  "com/suschunkfinder/ClickGuiScreen.class",
+                  "com/suschunkfinder/ModuleManager.class",
+                  "com/suschunkfinder/ModuleSettingsScreen.class",
+                  "com/suschunkfinder/ConfigManager.class",
+                  "com/suschunkfinder/Keys.class",
+                  "com/suschunkfinder/ModuleKeybinds.class",
+                  "com/suschunkfinder/StorageEspModule.class",
+                  "com/suschunkfinder/MobEspModule.class"
+              ]
+              for path in required_once:
+                  assert count(path) == 1, f"Expected exactly one {path}, got {count(path)}"
+
+              forbidden = [
+                  "PlayerEspModule", "KillAuraModule", "AutoMaceModule",
+                  "ElytraMaceTargetModule", "TriggerBotModule"
+              ]
+              class_names = [n for n in names if n.endswith(".class")]
+              for token in forbidden:
+                  hits = [n for n in class_names if token.lower() in n.lower()]
+                  assert not hits, f"Forbidden module classes present: {hits}"
+              mace_hits = [n for n in class_names if "mace" in n.lower()]
+              assert not mace_hits, f"Mace-related classes present: {mace_hits}"
+
+              forbidden_addon = [
+                  n for n in class_names
+                  if "IonAnubisAddon" in n or "IonModuleAdapter" in n
+                  or "IonModuleProvider" in n or "IonAddonRuntime" in n
+              ]
+              assert not forbidden_addon, f"Anubis add-on bridge classes present: {forbidden_addon}"
+
+              module_manager = z.read("com/suschunkfinder/ModuleManager.class")
+              assert b"ModuleKeybinds" in module_manager and b"__keybinds" in module_manager
+              keys_class = z.read("com/suschunkfinder/Keys.class")
+              assert b"key.ionclient.open_gui" in keys_class
+
+              print("ZIP integrity: PASS")
+              print("Fabric descriptors: 1")
+              print("Nested JARs: 0")
+              print("GUI/module/config/keybind classes: exactly one each")
+              print("Storage ESP: one base implementation")
+              print("Mob ESP: one implementation")
+              print("Player ESP and forbidden ION combat modules: absent")
+              print("ION add-on bridge: absent")
+              print("Artifact size:", jar_path.stat().st_size)
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ION-CLIENT-1.21.11-SOURCE-MERGED
+          path: |
+            dist/ION-CLIENT-1.21.11.jar
+            dist/ion-source-merge-info.json
+            dist/build-info.txt
+          if-no-files-found: error
+          retention-days: 90
