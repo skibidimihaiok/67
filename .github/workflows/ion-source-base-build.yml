@@ -145,7 +145,7 @@ jobs:
               number.write_text(number_text)
 
           # Register only ION modules that the original base does not already provide.
-          registered = set(re.findall(r"MODULES\\.add\\(new\\s+([A-Za-z0-9_]+)\\s*\\(", original_manager))
+          registered = set(re.findall(r"MODULES\.add\(new\s+([A-Za-z0-9_]+)\s*\(", original_manager))
           new_modules = sorted(
               name for name in copied_modules
               if name not in registered
@@ -160,7 +160,7 @@ jobs:
 
           manager_text = original_manager
           manager_text = re.sub(
-              r"^[ \\t]*MODULES\\.add\\(new PlayerEspModule\\(\\)\\);\\s*\\n",
+              r"^[ \t]*MODULES\.add\(new PlayerEspModule\(\)\);\s*\n",
               "",
               manager_text,
               flags=re.MULTILINE
